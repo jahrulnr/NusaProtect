@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createTheme, Theme } from "@mui/material";
 
-const SETTINGS_KEY = "gpopenui_settings";
+const SETTINGS_KEY = "nusaprotect_settings";
 
 function resolveMode(theme: string): "light" | "dark" {
   if (theme === "light") return "light";

@@ -41,15 +41,15 @@ enum TrayStatus {
 impl TrayStatus {
   fn tooltip(self, connected_at: Option<Instant>) -> String {
     match self {
-      Self::Disconnected => "GP OpenUI — Disconnected".to_string(),
-      Self::Connecting => "GP OpenUI — Connecting…".to_string(),
-      Self::Disconnecting => "GP OpenUI — Disconnecting…".to_string(),
+      Self::Disconnected => "NusaProtect — Disconnected".to_string(),
+      Self::Connecting => "NusaProtect — Connecting…".to_string(),
+      Self::Disconnecting => "NusaProtect — Disconnecting…".to_string(),
       Self::Connected => match connected_at {
         Some(start) => format!(
-          "GP OpenUI — Connected {}",
+          "NusaProtect — Connected {}",
           format_duration(start.elapsed().as_secs())
         ),
-        None => "GP OpenUI — Connected".to_string(),
+        None => "NusaProtect — Connected".to_string(),
       },
     }
   }
@@ -193,7 +193,7 @@ impl App {
           let client_store_menu = Arc::clone(&client_store);
 
           let mut tray_builder = TrayIconBuilder::with_id("main-tray")
-            .tooltip("GP OpenUI")
+            .tooltip("NusaProtect")
             .menu(&tray_menu)
             .show_menu_on_left_click(false);
 

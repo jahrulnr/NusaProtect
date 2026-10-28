@@ -13,14 +13,14 @@ pub struct LaunchSettings {
   pub symbolic_tray_icon: bool,
 }
 
-/// `$XDG_CONFIG_HOME/com.magishira.gpopenui/launch-settings.json`
+/// `$XDG_CONFIG_HOME/io.github.jahrulnr.nusaprotect/launch-settings.json`
 /// (falls back to `~/.config` when XDG_CONFIG_HOME is unset or empty).
 pub fn launch_settings_path() -> PathBuf {
   let config_home = env::var("XDG_CONFIG_HOME")
     .ok()
     .filter(|v| !v.is_empty())
     .unwrap_or_else(|| format!("{}/.config", env::var("HOME").unwrap_or_default()));
-  PathBuf::from(config_home).join("com.magishira.gpopenui/launch-settings.json")
+  PathBuf::from(config_home).join("io.github.jahrulnr.nusaprotect/launch-settings.json")
 }
 
 impl LaunchSettings {

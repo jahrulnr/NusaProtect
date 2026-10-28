@@ -1,7 +1,7 @@
 [package]
-name = "gpgui"
+name = "nusaprotect"
 version = "3.2.0"
-authors = ["Elane Faisal-Sage <elane@linux.com>"]
+authors = ["Elane Faisal-Sage <elane@linux.com>", "Jahrulnr"]
 license = "GPL-2.0"
 rust-version = "1.85"
 edition = "2024"

@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
-# install.sh — Build and install GP OpenUI, replacing the upstream gpgui binary.
+# install.sh — Build and install NusaProtect, replacing the upstream gpgui binary.
 #
 # This script:
 #   1. Installs build dependencies (Rust, Node.js, pnpm, WebKitGTK, etc.)
 #   2. Installs GlobalProtect-openconnect (gpservice + gpclient) from upstream
 #   3. Builds this Tauri app
 #   4. Replaces the system gpgui binary with the one from this repo
+#   5. Installs the NusaProtect desktop entry and application icons
 #
 # Supported distros: Debian/Ubuntu, Fedora/RHEL, Arch Linux
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_NAME="gpgui"
+# The built artifact is named `nusaprotect`, but it MUST be installed as
+# `gpgui`: `gpclient launch-gui` resolves the GUI as a sibling binary named
+# `gpgui` next to gpclient (upstream binary_paths::gpgui), and probes
+# `<file> --version`. The installed filename is functional, not branding.
+APP_BINARY="nusaprotect"
+INSTALL_NAME="gpgui"
 INSTALL_DIR="/usr/bin"
 GP_UPSTREAM_INSTALL_URL="https://github.com/yuezk/GlobalProtect-openconnect/releases/latest/download/install.sh"
 
@@ -141,7 +147,7 @@ install_pnpm() {
 # ---------------------------------------------------------------------------
 # 4. GlobalProtect-openconnect (upstream: gpservice + gpclient)
 #
-# GP OpenUI is only a GUI — the VPN work is done by the upstream gpservice
+# NusaProtect is only a GUI — the VPN work is done by the upstream gpservice
 # daemon and gpclient launcher. Both are required at runtime.
 # ---------------------------------------------------------------------------
 install_gp_upstream() {
@@ -154,7 +160,7 @@ install_gp_upstream() {
   have gpservice || missing+=("gpservice")
   have gpclient  || missing+=("gpclient")
   warn "Required runtime components not found: ${missing[*]}"
-  warn "GP OpenUI is a GUI frontend — without gpservice + gpclient the app cannot connect."
+  warn "NusaProtect is a GUI frontend — without gpservice + gpclient the app cannot connect."
 
   # Interactive shells get a yes/no choice; non-interactive runs keep the
   # previous behavior (auto-install) so piped/automated installs don't break.
@@ -181,7 +187,7 @@ install_gp_upstream() {
 # 5. Build this Tauri app
 # ---------------------------------------------------------------------------
 build_app() {
-  info "Building GP OpenUI..."
+  info "Building NusaProtect..."
   cd "$REPO_DIR"
 
   info "  Installing frontend dependencies..."
@@ -191,7 +197,7 @@ build_app() {
   pnpm tauri build --no-bundle
 
   local binary
-  binary="$REPO_DIR/src-tauri/target/release/$BINARY_NAME"
+  binary="$REPO_DIR/src-tauri/target/release/$APP_BINARY"
   if [[ ! -f "$binary" ]]; then
     die "Build succeeded but binary not found at: $binary"
   fi
@@ -202,10 +208,10 @@ build_app() {
 # 6. Install / replace the gpgui binary
 # ---------------------------------------------------------------------------
 install_binary() {
-  local src="$REPO_DIR/src-tauri/target/release/$BINARY_NAME"
-  local dest="$INSTALL_DIR/$BINARY_NAME"
+  local src="$REPO_DIR/src-tauri/target/release/$APP_BINARY"
+  local dest="$INSTALL_DIR/$INSTALL_NAME"
 
-  info "Installing $BINARY_NAME to $dest..."
+  info "Installing $APP_BINARY as $dest..."
 
   if [[ -f "$dest" && ! -f "${dest}.upstream" ]]; then
     info "  Backing up existing binary to ${dest}.upstream..."
@@ -219,10 +225,40 @@ install_binary() {
 }
 
 # ---------------------------------------------------------------------------
+# 7. Desktop entry + icons
+# ---------------------------------------------------------------------------
+install_desktop_assets() {
+  info "Installing NusaProtect desktop entry and icons..."
+
+  sudo install -m 644 -D "$REPO_DIR/packaging/nusaprotect.desktop" \
+    /usr/share/applications/nusaprotect.desktop
+
+  local size
+  for size in 32x32 64x64 128x128 256x256 512x512; do
+    local src="$REPO_DIR/src-tauri/icons/${size}.png"
+    # The icon set uses nonstandard filenames for some sizes.
+    case "$size" in
+      256x256) src="$REPO_DIR/src-tauri/icons/128x128@2x.png" ;;
+      512x512) src="$REPO_DIR/src-tauri/icons/icon.png" ;;
+    esac
+    sudo install -m 644 -D "$src" "/usr/share/icons/hicolor/${size}/apps/nusaprotect.png"
+  done
+  sudo install -m 644 -D "$REPO_DIR/src-tauri/icons/icon.svg" \
+    /usr/share/icons/hicolor/scalable/apps/nusaprotect.svg
+
+  # Refresh caches when the tools exist; harmless when they don't.
+  have update-desktop-database && sudo update-desktop-database /usr/share/applications || true
+  have gtk-update-icon-cache && sudo gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
+
+  info "Desktop entry: /usr/share/applications/nusaprotect.desktop"
+  info "Note: the upstream 'GP Connect' launcher entry (gpgui.desktop) still exists and launches the same app; remove it manually if unwanted."
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 main() {
-  info "=== GP OpenUI installer ==="
+  info "=== NusaProtect installer ==="
   info "Repo: $REPO_DIR"
   echo
 
@@ -239,9 +275,11 @@ main() {
   echo
   install_binary
   echo
+  install_desktop_assets
+  echo
 
   info "=== Done! ==="
-  info "You can now launch GP OpenUI via your application launcher or by running: gpclient launch-gui"
+  info "You can now launch NusaProtect via your application launcher or by running: gpclient launch-gui"
 }
 
 main "$@"

@@ -1693,29 +1693,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gpgui"
-version = "3.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "common",
- "compile-time",
- "env_logger",
- "futures-util",
- "gpapi",
- "log",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tokio",
- "tokio-tungstenite",
- "tokio-util",
- "uuid",
- "zeroize",
-]
-
-[[package]]
 name = "gtk"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2682,6 +2659,29 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "nusaprotect"
+version = "3.2.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "compile-time",
+ "env_logger",
+ "futures-util",
+ "gpapi",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]

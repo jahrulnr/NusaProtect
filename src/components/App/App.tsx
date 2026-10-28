@@ -40,9 +40,9 @@ function getStateTag(vpnState: VpnState | null): string {
   return "disconnected";
 }
 
-const PORTAL_KEY = "gpgui_last_portal";
-const GATEWAY_KEY = "gpopenui_gateway";
-const GATEWAYS_CACHE_KEY = "gpopenui_gateways";
+const PORTAL_KEY = "nusaprotect_last_portal";
+const GATEWAY_KEY = "nusaprotect_gateway";
+const GATEWAYS_CACHE_KEY = "nusaprotect_gateways";
 
 type StoredSettings = {
   clientOs?: string;
@@ -138,7 +138,7 @@ export default function App() {
     // Shared auto-connect routine: cookie-reuse SAML connect without user interaction.
     // Falls back to showing the window (when showWindowOnFallback) if it can't proceed.
     const attemptAutoConnect = async (showWindowOnFallback: boolean) => {
-      const s = JSON.parse(localStorage.getItem("gpopenui_settings") ?? "{}");
+      const s = JSON.parse(localStorage.getItem("nusaprotect_settings") ?? "{}");
       const savedPortal = localStorage.getItem(PORTAL_KEY);
 
       if (!savedPortal || !(s.reuseAuthCookies ?? true)) {
@@ -207,7 +207,7 @@ export default function App() {
       if (autoConnectAttemptedRef.current) return;
       autoConnectAttemptedRef.current = true;
       if (getStateTag(state) !== "disconnected") return;
-      const s = JSON.parse(localStorage.getItem("gpopenui_settings") ?? "{}");
+      const s = JSON.parse(localStorage.getItem("nusaprotect_settings") ?? "{}");
       if (s.autoConnect) void attemptAutoConnect(false);
     };
 
@@ -317,7 +317,7 @@ export default function App() {
     });
 
     const unlistenResume = listen("resume-connection", async () => {
-      const s = JSON.parse(localStorage.getItem("gpopenui_settings") ?? "{}");
+      const s = JSON.parse(localStorage.getItem("nusaprotect_settings") ?? "{}");
       if (!(s.resumeOnWake ?? false)) return;
       // Same gate as tray-connect: only resume from a truly disconnected state —
       // a resume during connecting/reconnectRequired must not start a second flow.
@@ -326,7 +326,7 @@ export default function App() {
     });
 
     const unlistenCloseRequested = listen("window-close-requested", async () => {
-      const s = JSON.parse(localStorage.getItem("gpopenui_settings") ?? "{}");
+      const s = JSON.parse(localStorage.getItem("nusaprotect_settings") ?? "{}");
       if (s.closeWindowBehavior === "quit") {
         await invoke("quit_app");
       } else {
@@ -366,7 +366,7 @@ export default function App() {
     }
   }, []);
 
-  const readSettings = () => JSON.parse(localStorage.getItem("gpopenui_settings") ?? "{}");
+  const readSettings = () => JSON.parse(localStorage.getItem("nusaprotect_settings") ?? "{}");
 
   const handleConnectSaml = useCallback(async (portal: string, browser: string | null) => {
     if (connectInFlightRef.current) return;
@@ -596,11 +596,11 @@ export default function App() {
             color="text.secondary"
             sx={{ flex: 1, textAlign: "center", fontWeight: 600, letterSpacing: 0.5 }}
           >
-            GP OpenUI
+            NusaProtect
           </Typography>
           <IconButton
             size="small"
-            onClick={() => invoke("open_url", { url: "https://github.com/MagiShira/globalprotect-openconnect-openui" })}
+            onClick={() => invoke("open_url", { url: "https://github.com/jahrulnr/NusaProtect" })}
           >
             <GitHubIcon fontSize="small" />
           </IconButton>

@@ -1,19 +1,17 @@
-# GP OpenUI
+# NusaProtect
 An open-source graphical front-end for the [GlobalProtect-openconnect](https://github.com/yuezk/GlobalProtect-openconnect) CLI tools, supporting password and SSO (SAML) authentication.
 
 > **Disclaimer:** This is an unofficial third-party client and is not affiliated with or endorsed by Palo Alto Networks. GlobalProtect is a registered trademark of Palo Alto Networks.
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/f19f05b5-1818-4f48-98be-4fc5b83b605f" />
-</p>
-
 ## About
 
-GP OpenUI is a custom GUI for the `gpclient` / `gpservice` daemon stack from [GlobalProtect-openconnect](https://github.com/yuezk/GlobalProtect-openconnect). It replaces the upstream `gpgui` binary with a free and open-source interface built with [Tauri](https://tauri.app) (Rust + React).
+NusaProtect is a custom GUI for the `gpclient` / `gpservice` daemon stack from [GlobalProtect-openconnect](https://github.com/yuezk/GlobalProtect-openconnect). It replaces the upstream `gpgui` binary with a free and open-source interface built with [Tauri](https://tauri.app) (Rust + React).
+
+NusaProtect is forked from [GP OpenUI](https://github.com/MagiShira/globalprotect-openconnect-openui) by Elane Faisal-Sage.
 
 ### Why?
 
-The upstream `gpgui` binary is proprietary-- you can't study, modify, or share it. For a VPN client handling your credentials and network traffic, that matters. GP OpenUI is [free software](https://www.fsf.org/about/what-is-free-software).
+The upstream `gpgui` binary is proprietary-- you can't study, modify, or share it. For a VPN client handling your credentials and network traffic, that matters. NusaProtect is [free software](https://www.fsf.org/about/what-is-free-software).
 
 ## Features
 
@@ -50,13 +48,16 @@ The script will:
 3. Install Node.js LTS and pnpm if not already present
 4. Install GlobalProtect-openconnect (`gpservice` + `gpclient`) from the upstream package repository
 5. Build this Tauri app (`pnpm install` + `cargo tauri build`)
-6. Replace `/usr/bin/gpgui` with the newly built binary (the original is backed up as `gpgui.upstream`)
+6. Install the built `nusaprotect` binary as `/usr/bin/gpgui` (the original is backed up as `gpgui.upstream`) — the installed filename must stay `gpgui` because `gpclient launch-gui` resolves the GUI as a sibling binary of that name
+7. Install the `nusaprotect.desktop` launcher entry and application icons
+
+The upstream `gpgui.desktop` launcher entry ("GP Connect") is left untouched — it launches the same app. Remove it manually if you only want the NusaProtect entry.
 
 **Supported distributions:** Debian/Ubuntu, Fedora/RHEL, Arch Linux (requires an AUR helper — `yay` or `paru`)
 
 ## Usage
 
-After installation, launch the GUI through your application launcher or via:
+After installation, launch NusaProtect through your application launcher or via:
 
 ```bash
 gpclient launch-gui
@@ -70,7 +71,6 @@ Some GlobalProtect installations use older TLS configurations (e.g. deprecated c
 gpclient --fix-openssl launch-gui
 ```
 
-
 ## Requirements
 
 - Linux (X11 or Wayland)
@@ -80,4 +80,3 @@ gpclient --fix-openssl launch-gui
 ## License
 
 GPL-2.0
-

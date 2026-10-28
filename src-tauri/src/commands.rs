@@ -353,7 +353,7 @@ pub fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), Stri
   };
 
   WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App(url.into()))
-    .title("GP OpenUI Settings")
+    .title("NusaProtect Settings")
     .inner_size(700.0, 560.0)
     .center()
     .resizable(false)

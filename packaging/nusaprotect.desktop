@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NusaProtect
+Comment=A GUI client for GlobalProtect VPN
+GenericName=VPN Client
+Categories=Network;Dialup;
+Exec=/usr/bin/gpclient launch-gui %u
+MimeType=x-scheme-handler/globalprotectcallback;
+Icon=nusaprotect
+Keywords=GlobalProtect;Openconnect;SAML;connection;VPN;

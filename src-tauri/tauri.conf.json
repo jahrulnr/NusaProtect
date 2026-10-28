@@ -6,8 +6,8 @@
     "devUrl": "http://localhost:1422",
     "frontendDist": "../dist"
   },
-  "identifier": "com.magishira.gpopenui",
-  "productName": "GP OpenUI",
+  "identifier": "io.github.jahrulnr.nusaprotect",
+  "productName": "NusaProtect",
   "app": {
     "withGlobalTauri": false,
     "security": {
@@ -15,7 +15,7 @@
     },
     "windows": [
       {
-        "title": "GP OpenUI",
+        "title": "NusaProtect",
         "center": true,
         "resizable": false,
         "width": 360,

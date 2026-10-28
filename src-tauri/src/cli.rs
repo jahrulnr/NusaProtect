@@ -12,7 +12,7 @@ use crate::{app::App, settings::LaunchSettings};
 const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " (", compile_time::date_str!(), ")");
 
 #[derive(Parser)]
-#[command(name = "gpgui", version = VERSION)]
+#[command(name = "nusaprotect", version = VERSION)]
 struct Cli {
   #[arg(long, help = "Read the service credential from stdin")]
   service_credential_on_stdin: bool,
@@ -125,7 +125,7 @@ pub fn run() {
   let backend = configure_display_backend(launch_settings.hidpi);
 
   init_logger(&cli);
-  info!("gpgui started: {}", VERSION);
+  info!("nusaprotect started: {}", VERSION);
   info!("Display backend: {}", backend);
 
   // Ambient multi-threaded runtime for cli.run() and the tasks it spawns.

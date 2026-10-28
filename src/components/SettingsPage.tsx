@@ -118,7 +118,7 @@ const DEFAULT_SETTINGS: Settings = {
   keyPassphrase: "",
 };
 
-const SETTINGS_KEY = "gpopenui_settings";
+const SETTINGS_KEY = "nusaprotect_settings";
 
 function loadSettings(): Settings {
   try {
@@ -501,7 +501,7 @@ function LicenseSection() {
         GNU General Public License v2.0
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        GP OpenUI is free software: you can redistribute it and/or modify it
+        NusaProtect is free software: you can redistribute it and/or modify it
         under the terms of the GNU General Public License as published by the
         Free Software Foundation, version 2.
       </Typography>
@@ -546,7 +546,7 @@ function AboutSection() {
     <Stack spacing={1.5}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          GP OpenUI
+          NusaProtect
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Version 0.1.0
@@ -567,7 +567,8 @@ function AboutSection() {
       <Divider />
 
       {[
-        ["Author", "Elane Faisal-Sage <elane@linux.com>"],
+        ["Author", "Jahrulnr"],
+        ["Forked from", "GP OpenUI — Elane Faisal-Sage <elane@linux.com>"],
         ["License", "GPL-2.0"],
       ].map(([label, value]) => (
         <Box key={label} sx={{ display: "flex", gap: 2 }}>
@@ -603,7 +604,7 @@ function AboutSection() {
         <Box component="span" sx={{ display: "inline-block", transform: "scaleX(-1)" }}>
           ©
         </Box>{" "}
-        Elane Faisal-Sage
+        Elane Faisal-Sage and Jahrulnr
       </Typography>
     </Stack>
   );
@@ -733,7 +734,7 @@ export default function SettingsPage() {
             color="text.secondary"
             sx={{ flex: 1, fontWeight: 600, letterSpacing: 0.5 }}
           >
-            GP OpenUI Settings
+            NusaProtect Settings
           </Typography>
           <IconButton size="small" onClick={handleCancel} sx={{ mr: 0.5 }}>
             <CloseIcon fontSize="small" />

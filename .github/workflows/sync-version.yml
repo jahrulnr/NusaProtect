@@ -40,6 +40,6 @@ jobs:
           body: |
             Upstream GlobalProtect-openconnect released **v${{ steps.upstream.outputs.version }}**.
 
-            Bumping `Cargo.toml` to match so the upstream installer does not auto-replace the GP OpenUI binary.
+            Bumping `Cargo.toml` to match so the upstream installer does not auto-replace the NusaProtect binary.
           branch: "auto/version-sync-${{ steps.upstream.outputs.version }}"
           delete-branch: true
