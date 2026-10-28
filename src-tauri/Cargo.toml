@@ -1,6 +1,6 @@
 [package]
 name = "gpgui"
-version = "2.6.4"
+version = "3.2.0"
 authors = ["Elane Faisal-Sage <elane@linux.com>"]
 license = "GPL-2.0"
 rust-version = "1.85"
@@ -10,8 +10,8 @@ edition = "2024"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-gpapi = { git = "https://github.com/yuezk/GlobalProtect-openconnect", features = ["clap", "webview-auth"] }
-common = { git = "https://github.com/yuezk/GlobalProtect-openconnect" }
+gpapi = { git = "https://github.com/yuezk/GlobalProtect-openconnect", tag = "v3.2.0", features = ["clap", "webview-auth"] }
+common = { git = "https://github.com/yuezk/GlobalProtect-openconnect", tag = "v3.2.0" }
 tauri = { version = "2", features = ["tray-icon"] }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
@@ -23,6 +23,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures-util = "0.3"
 tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+tokio-util = "0.7"
+uuid = { version = "1", features = ["v4", "serde"] }
+zeroize = "1"
 
 [features]
 default = ["tauri/custom-protocol"]

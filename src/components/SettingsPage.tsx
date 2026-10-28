@@ -10,6 +10,7 @@ import {
   ListItemText,
   Divider,
   Button,
+  IconButton,
   Alert,
   ToggleButtonGroup,
   ToggleButton,
@@ -28,6 +29,7 @@ import {
   DialogActions,
 } from "@mui/material";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import CloseIcon from "@mui/icons-material/Close";
 import TuneIcon from "@mui/icons-material/Tune";
 import RouterIcon from "@mui/icons-material/Router";
 import LockPersonIcon from "@mui/icons-material/LockPerson";
@@ -37,7 +39,6 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import SettingsBrightnessIcon from "@mui/icons-material/SettingsBrightness";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useAppTheme } from "../useAppTheme";
@@ -202,7 +203,6 @@ const GENERAL_RESTART_KEYS: (keyof Settings)[] = [
   "hidpi",
   "startMinimized",
   "autoConnect",
-  "resumeOnWake",
 ];
 
 function GeneralSection({
@@ -483,6 +483,7 @@ function SslSection() {
           fontFamily: "monospace",
           fontSize: "0.8rem",
           overflowX: "auto",
+          userSelect: "text",
         }}
       >
         gpclient --fix-openssl launch-gui
@@ -658,6 +659,12 @@ export default function SettingsPage() {
       return;
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    // Persist launch-time settings for the backend to read at process start (non-fatal).
+    invoke("persist_launch_settings", {
+      hidpi: settings.hidpi,
+      startMinimized: settings.startMinimized,
+      symbolicTrayIcon: settings.symbolicTrayIcon,
+    }).catch(() => {});
     setSavedSettings(settings);
     setSaved(true);
   };
@@ -666,7 +673,7 @@ export default function SettingsPage() {
     if (isDirty) {
       setConfirmDiscard(true);
     } else {
-      await getCurrentWindow().close();
+      await invoke("close_window").catch(() => {});
     }
   };
 
@@ -682,7 +689,7 @@ export default function SettingsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmDiscard(false)}>Keep editing</Button>
-          <Button color="error" onClick={async () => { setConfirmDiscard(false); await getCurrentWindow().close(); }}>Discard</Button>
+          <Button color="error" onClick={async () => { setConfirmDiscard(false); await invoke("close_window").catch(() => {}); }}>Discard</Button>
         </DialogActions>
       </Dialog>
 
@@ -702,6 +709,36 @@ export default function SettingsPage() {
         </Alert>
       </Snackbar>
       <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+        {/* Custom titlebar (frameless window) */}
+        <Box
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) invoke("start_dragging").catch(() => {});
+          }}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            pl: 1.5,
+            height: 36,
+            flexShrink: 0,
+            borderBottom: 1,
+            borderColor: "divider",
+            userSelect: "none",
+          }}
+        >
+          <Typography
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) invoke("start_dragging").catch(() => {});
+            }}
+            variant="caption"
+            color="text.secondary"
+            sx={{ flex: 1, fontWeight: 600, letterSpacing: 0.5 }}
+          >
+            GP OpenUI Settings
+          </Typography>
+          <IconButton size="small" onClick={handleCancel} sx={{ mr: 0.5 }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
         <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
           {/* Sidebar */}
           <Box

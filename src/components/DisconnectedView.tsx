@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
+  MenuItem,
   TextField,
   Typography,
   Alert,
@@ -13,11 +14,14 @@ import {
 } from "@mui/material";
 import PublicIcon from "@mui/icons-material/Public";
 import VpnKeyOff from "@mui/icons-material/VpnKeyOff";
-import { PreloginType } from "../types";
+import { Gateway, PreloginType } from "../types";
 
 interface Props {
   portal: string;
   onPortalChange: (portal: string) => void;
+  gateway: string;
+  gateways: Gateway[];
+  onGatewayChange: (gateway: string) => void;
   error: string | null;
   onOpenSettings: () => void;
   preloginInfo: PreloginType | null;
@@ -29,6 +33,9 @@ interface Props {
 export default function DisconnectedView({
   portal,
   onPortalChange,
+  gateway,
+  gateways,
+  onGatewayChange,
   error,
   onOpenSettings,
   preloginInfo,
@@ -148,6 +155,24 @@ export default function DisconnectedView({
             },
           }}
         />
+
+        {gateways.length > 0 && (
+          <TextField
+            select
+            label="Gateway"
+            value={gateways.some((g) => g.name === gateway) ? gateway : ""}
+            onChange={(e) => onGatewayChange(e.target.value)}
+            size="small"
+            fullWidth
+          >
+            <MenuItem value="">Auto (recommended)</MenuItem>
+            {gateways.map((g) => (
+              <MenuItem key={g.name} value={g.name}>
+                {g.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
 
         {isStandard && standardPrelogin && (
           <>

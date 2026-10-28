@@ -140,6 +140,9 @@ install_pnpm() {
 
 # ---------------------------------------------------------------------------
 # 4. GlobalProtect-openconnect (upstream: gpservice + gpclient)
+#
+# GP OpenUI is only a GUI — the VPN work is done by the upstream gpservice
+# daemon and gpclient launcher. Both are required at runtime.
 # ---------------------------------------------------------------------------
 install_gp_upstream() {
   if have gpservice && have gpclient; then
@@ -147,8 +150,30 @@ install_gp_upstream() {
     return
   fi
 
+  local missing=()
+  have gpservice || missing+=("gpservice")
+  have gpclient  || missing+=("gpclient")
+  warn "Required runtime components not found: ${missing[*]}"
+  warn "GP OpenUI is a GUI frontend — without gpservice + gpclient the app cannot connect."
+
+  # Interactive shells get a yes/no choice; non-interactive runs keep the
+  # previous behavior (auto-install) so piped/automated installs don't break.
+  if [[ -t 0 ]]; then
+    local reply
+    read -r -p "Install GlobalProtect-openconnect (gpservice + gpclient) from upstream now? [Y/n] " reply
+    case "$reply" in
+      [Nn]|[Nn][Oo])
+        die "gpservice and gpclient are required. Install them from https://github.com/yuezk/GlobalProtect-openconnect then re-run this installer."
+        ;;
+    esac
+  fi
+
   info "Installing GlobalProtect-openconnect from upstream..."
   curl -fsSL "$GP_UPSTREAM_INSTALL_URL" | sudo bash
+
+  # The upstream installer may have failed silently for this distro.
+  have gpservice && have gpclient \
+    || die "Upstream install finished but gpservice/gpclient still missing. Check the log above."
   info "GlobalProtect-openconnect installed."
 }
 
@@ -182,9 +207,11 @@ install_binary() {
 
   info "Installing $BINARY_NAME to $dest..."
 
-  if [[ -f "$dest" ]]; then
+  if [[ -f "$dest" && ! -f "${dest}.upstream" ]]; then
     info "  Backing up existing binary to ${dest}.upstream..."
     sudo cp --preserve=all "$dest" "${dest}.upstream"
+  elif [[ -f "${dest}.upstream" ]]; then
+    info "  Keeping existing backup at ${dest}.upstream."
   fi
 
   sudo install -m 755 "$src" "$dest"

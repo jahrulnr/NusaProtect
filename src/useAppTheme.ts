@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createTheme, Theme } from "@mui/material";
 
 const SETTINGS_KEY = "gpopenui_settings";
@@ -47,14 +47,18 @@ export function useAppTheme(themeOverride?: string, extraStyles?: object): Theme
     };
   }, [themeOverride]);
 
-  return createTheme({
-    palette: { mode },
-    components: {
-      MuiCssBaseline: {
-        styleOverrides: {
-          body: { userSelect: "none", WebkitUserSelect: "none", ...extraStyles },
+  return useMemo(
+    () =>
+      createTheme({
+        palette: { mode },
+        components: {
+          MuiCssBaseline: {
+            styleOverrides: {
+              body: { userSelect: "none", WebkitUserSelect: "none", ...extraStyles },
+            },
+          },
         },
-      },
-    },
-  });
+      }),
+    [mode, extraStyles]
+  );
 }

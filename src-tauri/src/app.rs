@@ -1,8 +1,9 @@
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use gpapi::service::{
   request::{DisconnectRequest, WsRequest},
+  transport::SessionCredential,
   vpn_state::VpnState,
 };
 use log::{info, warn};
@@ -76,19 +77,43 @@ fn toggle_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<()
   }
 }
 
+/// Converts the default window icon into a monochrome "symbolic" variant
+/// (BT.601 luminance, alpha preserved) for tray themes that expect one.
+/// Returns None when no default icon is available.
+pub(crate) fn symbolic_icon(app: &tauri::AppHandle) -> Option<tauri::image::Image<'static>> {
+  let icon = app.default_window_icon()?;
+  let width = icon.width();
+  let height = icon.height();
+  let rgba: Vec<u8> = icon
+    .rgba()
+    .chunks_exact(4)
+    .flat_map(|px| {
+      let luma = (0.299 * px[0] as f32 + 0.587 * px[1] as f32 + 0.114 * px[2] as f32) as u8;
+      [luma, luma, luma, px[3]]
+    })
+    .collect();
+  Some(tauri::image::Image::new_owned(rgba, width, height))
+}
+
 pub struct App {
-  api_key: Vec<u8>,
+  credential: Arc<SessionCredential>,
   minimized: bool,
+  symbolic_tray_icon: bool,
 }
 
 impl App {
-  pub fn new(api_key: Vec<u8>, minimized: bool) -> Self {
-    Self { api_key, minimized }
+  pub fn new(credential: Arc<SessionCredential>, minimized: bool, symbolic_tray_icon: bool) -> Self {
+    Self {
+      credential,
+      minimized,
+      symbolic_tray_icon,
+    }
   }
 
   pub fn run(self) -> anyhow::Result<()> {
-    let api_key = self.api_key;
+    let credential = self.credential;
     let minimized = self.minimized;
+    let symbolic_tray_icon = self.symbolic_tray_icon;
     let state = AppState::new();
 
     let app = tauri::Builder::default()
@@ -98,11 +123,19 @@ impl App {
         get_prelogin,
         connect_saml,
         connect_password,
+        select_gateway,
+        cancel_connect,
+        switch_gateway,
         disconnect,
         quit_app,
+        minimize_window,
+        show_window,
+        close_window,
+        start_dragging,
         open_settings,
         open_url,
         clear_credentials,
+        persist_launch_settings,
       ])
       .setup(move |app| {
         let app_handle = app.handle().clone();
@@ -164,7 +197,12 @@ impl App {
             .menu(&tray_menu)
             .show_menu_on_left_click(false);
 
-          if let Some(icon) = app_handle.default_window_icon().cloned() {
+          let tray_icon = if symbolic_tray_icon {
+            symbolic_icon(&app_handle)
+          } else {
+            app_handle.default_window_icon().cloned()
+          };
+          if let Some(icon) = tray_icon {
             tray_builder = tray_builder.icon(icon);
           } else {
             warn!("No default window icon available for tray icon");
@@ -233,9 +271,9 @@ impl App {
             if let Ok(state) = serde_json::from_str::<VpnState>(event.payload()) {
               let new_status = match state {
                 VpnState::Connected(_) => TrayStatus::Connected,
-                VpnState::Connecting(_) => TrayStatus::Connecting,
+                VpnState::Connecting(_) | VpnState::ReconnectRequired(_) => TrayStatus::Connecting,
                 VpnState::Disconnecting => TrayStatus::Disconnecting,
-                VpnState::Disconnected => TrayStatus::Disconnected,
+                VpnState::Disconnected | VpnState::Failed(_) => TrayStatus::Disconnected,
               };
               tauri::async_runtime::spawn(async move {
                 let prev = {
@@ -292,7 +330,7 @@ impl App {
           let _ = window.set_skip_taskbar(true);
 
           let window_clone = window.clone();
-          let _ = window.on_window_event(move |event| {
+          window.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
               api.prevent_close();
               let _ = window_clone.emit("window-close-requested", ());
@@ -300,17 +338,46 @@ impl App {
           });
         }
 
-        // Connect to gpservice in the background
+        // Connect to gpservice in the background; on failure or disconnect,
+        // keep retrying with exponential backoff. The io task emits
+        // "service-disconnected" when the socket drops, then we reconnect here.
         tauri::async_runtime::spawn(async move {
-          match connect_to_service(api_key, app_handle.clone(), Arc::clone(&client_store)).await {
-            Ok(client) => {
-              info!("Connected to gpservice");
-              *client_store.lock().await = Some(client);
+          let mut first_failure = true;
+          let mut backoff = Duration::from_secs(1);
+          loop {
+            match connect_to_service(Arc::clone(&credential), app_handle.clone(), Arc::clone(&client_store)).await {
+              Ok((client, io_done, vpn_state)) => {
+                info!("Connected to gpservice");
+                *client_store.lock().await = Some(client);
+                // Carry the attach snapshot: the "vpn-state" emit inside
+                // connect_to_service can race past frontend listener
+                // registration, so this is the reliable delivery channel.
+                let _ = app_handle.emit("service-connected", &vpn_state);
+                first_failure = true;
+                backoff = Duration::from_secs(1);
+                // Wait until the io task ends (socket closed/error), then reconnect.
+                let _ = io_done.await;
+              }
+              Err(e) => {
+                if first_failure {
+                  let _ = app_handle.emit("service-error", e.to_string());
+                  first_failure = false;
+                }
+                warn!("Failed to connect to gpservice: {} (retrying in {:?})", e, backoff);
+                tokio::time::sleep(backoff).await;
+                backoff = (backoff * 2).min(Duration::from_secs(30));
+              }
             }
-            Err(e) => {
-              warn!("Failed to connect to gpservice: {}", e);
-              let _ = app_handle.emit("service-error", e.to_string());
-            }
+          }
+        });
+
+        // Broadcast every VPN state on the internal channel too; internal
+        // consumers (e.g. switch_gateway waiting for Disconnected) subscribe
+        // to it rather than listening to frontend events.
+        let vpn_state_tx = app.state::<AppState>().vpn_state_tx.clone();
+        app.listen_any("vpn-state", move |event| {
+          if let Ok(state) = serde_json::from_str::<VpnState>(event.payload()) {
+            let _ = vpn_state_tx.send(state);
           }
         });
 

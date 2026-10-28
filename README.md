@@ -30,10 +30,10 @@ The upstream `gpgui` binary is proprietary-- you can't study, modify, or share i
 
 ## Roadmap
 
-- [ ] **Manual gateway selection** — the app currently auto-selects the first gateway returned by the portal
+- [x] **Manual gateway selection** — interactive `choose-gateway` picker when the portal returns multiple gateways, a "Switch gateway" dropdown while connected, and a remembered gateway
 - [x] **System tray integration** — minimize to tray, tray icon menu
 - [ ] **Auto-start on login** — launch with the system and connect automatically
-- [ ] **Resume on wake** — reconnect automatically after the system wakes from sleep
+- [x] **Resume on wake** — gpservice emits a `resume-connection` event and the app re-authenticates automatically when the "Resume on Wake Up" setting is enabled (also triggered on `reconnectRequired` VPN states)
 
 ## Installation
 
