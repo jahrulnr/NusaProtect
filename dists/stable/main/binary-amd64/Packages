@@ -1,13 +1,13 @@
 Package: nusaprotect
-Version: 0.1.0
+Version: 0.1.1
 Architecture: amd64
 Maintainer: NusaProtect <https://github.com/jahrulnr/NusaProtect>
-Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3, ca-certificates, xdg-utils, libayatana-appindicator3-1, policykit-1, nftables, libxml2, libgnutls30, libnettle8, libhogweed6, libp11-kit0, libgmp10, liblz4-1
-Filename: pool/main/n/nusaprotect/nusaprotect_0.1.0_amd64.deb
-Size: 10818550
-MD5sum: a39f3e218ab9de5abb4aa29563d0d410
-SHA1: 89802ad884ac53ac0f4079c6a76ae2cdaa0bf437
-SHA256: 79198159e515cf7575fcddf03f323928086c2d9c3e21f237cb8d9c29c3e51b30
+Depends: libgtk-3-0 | libgtk-3-0t64, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3 | libssl3t64, ca-certificates, xdg-utils, libayatana-appindicator3-1, policykit-1 | polkitd, pkexec | policykit-1, nftables, libxml2, libgnutls30 | libgnutls30t64, libnettle8 | libnettle8t64, libhogweed6 | libhogweed6t64, libp11-kit0, libgmp10, liblz4-1
+Filename: pool/main/n/nusaprotect/nusaprotect_0.1.1_amd64.deb
+Size: 10820080
+MD5sum: f43d89c55ffa7ae0e2efdff77f45a48a
+SHA1: b4834956499fd0c81f77cad3ced6822f787fca7d
+SHA256: 854b11655511b5b476cf8891fc046e293056dea0476233310c7ba1e9ed2a9b06
 Section: net
 Priority: optional
 Description: NusaProtect GlobalProtect client
