@@ -52,12 +52,16 @@ The upstream `gpgui` binary is proprietary-- you can't study, modify, or share i
 Run the install script as a regular user (it uses `sudo` internally where root is required):
 
 ```bash
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/jahrulnr/NusaProtect/master/install.sh | bash
 ```
 
-The script adds the signed NusaProtect apt repository at `https://jahrulnr.github.io/NusaProtect` and installs the `nusaprotect` package, which contains the GUI and the VPN backend. If that repository is not published yet, it installs `nusaprotect_<version>_amd64.deb` from the newest `v*` release on [github.com/jahrulnr/NusaProtect](https://github.com/jahrulnr/NusaProtect) instead. In that case it does not add the apt source, so run `./install.sh` again after the repository is published.
+The script adds the signed NusaProtect apt repository at `https://jahrulnr.github.io/NusaProtect` and installs the `nusaprotect` package, which contains the GUI and the VPN backend. If that repository is not published yet, it installs `nusaprotect_<version>_amd64.deb` from the newest `v*` release on [github.com/jahrulnr/NusaProtect](https://github.com/jahrulnr/NusaProtect) instead. In that case it does not add the apt source, so run the same command again after the repository is published.
 
-Once the apt source is configured, later versions install with `sudo apt update && sudo apt upgrade`. To pin the GitHub release used by the fallback, set `NUSAPROTECT_RELEASE=v<version>`. A private checkout needs `gh auth login`.
+Once the apt source is configured, later versions install with `sudo apt update && sudo apt upgrade`. To pin the GitHub release used by the fallback, set `NUSAPROTECT_RELEASE=v<version>` before `bash`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jahrulnr/NusaProtect/master/install.sh | NUSAPROTECT_RELEASE=v<version> bash
+```
 
 Prebuilt packages are amd64 only.
 
@@ -127,7 +131,7 @@ You also need Rust (`router/rust-toolchain.toml` pins 1.91), pnpm (the version i
 ## Requirements
 
 - Linux (X11 or Wayland)
-- Debian or Ubuntu for `./install.sh`. Other distributions use `make install`, which needs the [build dependencies](#build-from-source).
+- Debian or Ubuntu for the [one-line installer](#debian-and-ubuntu). Other distributions use `make install`, which needs the [build dependencies](#build-from-source).
 - Internet access during the build for Cargo and pnpm dependencies. The router workspace also patches `tao` from GitHub.
 
 ## Credits

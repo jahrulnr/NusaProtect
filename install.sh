@@ -15,7 +15,6 @@ NUSAPROTECT_REPO="${NUSAPROTECT_REPO:-jahrulnr/NusaProtect}"
 NUSAPROTECT_APT_URL="${NUSAPROTECT_APT_URL:-https://jahrulnr.github.io/NusaProtect}"
 # Empty means the newest v* package release. Set this to pin a tag.
 NUSAPROTECT_RELEASE="${NUSAPROTECT_RELEASE:-}"
-ROOT="$(CDPATH= cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -65,7 +64,7 @@ apt_repo_ready() {
 
 configure_apt_source() {
   sudo install -d /usr/share/keyrings
-  sudo install -m 644 "$ROOT/packaging/apt/nusaprotect.gpg" /usr/share/keyrings/nusaprotect.gpg
+  curl -fsSL "$NUSAPROTECT_APT_URL/nusaprotect.gpg" | sudo tee /usr/share/keyrings/nusaprotect.gpg >/dev/null
   printf 'deb [signed-by=/usr/share/keyrings/nusaprotect.gpg] %s stable main\n' "$NUSAPROTECT_APT_URL" \
     | sudo tee /etc/apt/sources.list.d/nusaprotect.list >/dev/null
 }
