@@ -75,9 +75,10 @@ enum CliCommand {
 
 #[derive(Parser)]
 #[command(
+  name = "npclient",
   version = VERSION,
   author,
-  about = "The GlobalProtect VPN client, based on OpenConnect, supports the SSO authentication method.",
+  about = "The NusaProtect CLI for GlobalProtect VPN, based on OpenConnect, supports the SSO authentication method.",
   help_template = "\
 {before-help}{name} {version}
 {author}
@@ -88,7 +89,7 @@ enum CliCommand {
 
 {all-args}{after-help}
 
-See 'gpclient help <command>' for more information on a specific command.
+See 'npclient help <command>' for more information on a specific command.
 "
 )]
 struct Cli {
@@ -165,7 +166,10 @@ impl Cli {
     };
 
     p.exe()
-      .map(|exe| exe.to_string_lossy().contains("gpclient"))
+      .map(|exe| {
+        let exe = exe.to_string_lossy();
+        exe.contains("npclient") || exe.contains("gpclient")
+      })
       .unwrap_or(false)
   }
 
@@ -202,7 +206,7 @@ impl Cli {
         let log_file = args
           .log_file
           .as_deref()
-          .unwrap_or_else(|| Path::new("/var/log/gpclient.log"));
+          .unwrap_or_else(|| Path::new("/var/log/npclient.log"));
         match self.background_worker_fd {
           Some(fd) => Some(crate::background::BackgroundWorker::new(fd, log_file)?),
           None => return crate::background::start(log_file, self.log_format).await,

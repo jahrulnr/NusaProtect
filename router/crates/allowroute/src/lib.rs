@@ -212,6 +212,19 @@ pub fn prefix_covers(prefix: &str, ip: IpAddr) -> bool {
     }
 }
 
+/// True when `ip route get` output resolves through `dev` (e.g. the tunnel or
+/// `lo` for a local address). Used to keep resolvers that only exist behind
+/// the tunnel out of the underlay list.
+pub fn route_uses_dev(route_get: &str, dev: &str) -> bool {
+    let mut parts = route_get.split_whitespace();
+    while let Some(token) = parts.next() {
+        if token == "dev" {
+            return parts.next() == Some(dev);
+        }
+    }
+    false
+}
+
 /// Host route for one answered address.
 pub fn host_route(ip: IpAddr) -> String {
     match ip {
@@ -297,6 +310,24 @@ mod tests {
         assert!(prefix_covers("10.0.0.0/8", v4(10, 1, 2, 3)));
         assert!(!prefix_covers("10.0.0.0/8", v4(11, 0, 0, 1)));
         assert!(!prefix_covers("10.1.2.0/24", v4(10, 1, 3, 1)));
+    }
+
+    #[test]
+    fn detects_route_device() {
+        assert!(route_uses_dev(
+            "100.127.46.1 dev tun0 src 100.127.9.180 uid 0 \n    cache ",
+            "tun0"
+        ));
+        assert!(route_uses_dev(
+            "local 100.127.9.180 dev lo src 100.127.9.180 uid 0",
+            "lo"
+        ));
+        assert!(!route_uses_dev(
+            "203.142.82.222 via 192.168.18.1 dev wlp2s0 src 192.168.18.150 uid 0",
+            "tun0"
+        ));
+        assert!(!route_uses_dev("broadcast 127.255.255.255 dev lo", "tun0"));
+        assert!(!route_uses_dev("unreachable", "tun0"));
     }
 
     fn push_name(buf: &mut Vec<u8>, name: &str) {

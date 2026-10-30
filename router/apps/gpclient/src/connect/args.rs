@@ -30,7 +30,7 @@ pub(crate) struct ConnectArgs {
   #[arg(
     long,
     requires = "background",
-    help = "Background log file (default: /var/log/gpclient.log)"
+    help = "Background log file (default: /var/log/npclient.log)"
   )]
   pub(crate) log_file: Option<PathBuf>,
 

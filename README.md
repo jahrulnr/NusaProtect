@@ -1,13 +1,24 @@
+<div align="center">
+
+<img src="src-tauri/icons/icon.png" width="128" alt="NusaProtect logo">
+
 # NusaProtect
-An open-source graphical front-end for the [GlobalProtect-openconnect](https://github.com/yuezk/GlobalProtect-openconnect) CLI tools, supporting password and SSO (SAML) authentication.
+
+An open-source GlobalProtect VPN client for Linux, with its own CLI and background service.
+
+</div>
 
 > **Disclaimer:** This is an unofficial third-party client and is not affiliated with or endorsed by Palo Alto Networks. GlobalProtect is a registered trademark of Palo Alto Networks.
 
 ## About
 
-NusaProtect is a custom GUI for the `npclient` / `npservice` daemon stack. The daemon stack is built from [`router/`](router/) in this repository, which is based on [GlobalProtect-openconnect](https://github.com/yuezk/GlobalProtect-openconnect). Installed binaries use the `np*` prefix so they do not clash with the upstream `gp*` package. The GUI is built with [Tauri](https://tauri.app) (Rust + React).
+NusaProtect's main programs:
 
-NusaProtect is forked from [GP OpenUI](https://github.com/MagiShira/globalprotect-openconnect-openui) by Elane Faisal-Sage.
+- **`npgui`**: the desktop app, built with [Tauri](https://tauri.app) (Rust + React).
+- **`npclient`**: the command-line client.
+- **`npservice`**: the background service that manages the VPN connection.
+
+The CLI and service are built from [`router/`](router/) in this repository. Installed binaries use the `np*` prefix so they do not clash with the upstream `gp*` package, and NusaProtect does not depend on that package.
 
 ### Why?
 
@@ -64,6 +75,16 @@ After installation, launch NusaProtect through your application launcher or via:
 npclient launch-gui
 ```
 
+### Command line
+
+`npclient` is the command-line client. Run `npclient --help` to see every command and option.
+
+```bash
+npclient connect vpn.example.com   # connect to a portal server
+npclient disconnect                # disconnect the active session
+npclient diagnostics               # collect diagnostics for a bug report
+```
+
 ### Legacy TLS Configurations
 
 Some GlobalProtect installations use older TLS configurations (e.g. deprecated ciphers or older protocol versions) that are rejected by the system OpenSSL by default. If the GUI fails to connect with a TLS handshake error, use the `--fix-openssl` flag:
@@ -109,6 +130,11 @@ You also need Rust (`router/rust-toolchain.toml` pins 1.91), pnpm (the version i
 - Debian or Ubuntu for `./install.sh`. Other distributions use `make install`, which needs the [build dependencies](#build-from-source).
 - Internet access during the build for Cargo and pnpm dependencies. The router workspace also patches `tao` from GitHub.
 
+## Credits
+
+- NusaProtect is forked from [GP OpenUI](https://github.com/MagiShira/globalprotect-openconnect-openui) by Elane Faisal-Sage.
+- [`router/`](router/) is based on [GlobalProtect-openconnect](https://github.com/yuezk/GlobalProtect-openconnect) by yuezk, which is built on OpenConnect.
+
 ## License
 
-NusaProtect (`src/`, `src-tauri/`) is GPL-2.0; see [LICENSE](LICENSE). `router/` is GPL-3.0; see [router/LICENSE](router/LICENSE). Some crates in `router/` are MIT, so check each crate's `Cargo.toml`.
+NusaProtect (`src/`, `src-tauri/`) is GPL-3.0-or-later; see [LICENSE](LICENSE). `router/` is GPL-3.0; see [router/LICENSE](router/LICENSE). Some crates in `router/` are MIT, so check each crate's `Cargo.toml`. The combined binary is GPL-3.0-or-later.

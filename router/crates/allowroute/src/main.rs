@@ -11,18 +11,22 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpListener, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
+use std::collections::HashSet;
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use allowroute::{decide, host_route, inspect_dns, prefix_covers};
+use allowroute::{decide, host_route, inspect_dns, prefix_covers, route_uses_dev};
 
 const MARK: libc::c_int = 0x6770;
 /// Not 5353: that port is held by avahi-daemon (mDNS) on many desktops.
 const LISTEN_PORT: u16 = 15353;
 const QUERY_TIMEOUT: Duration = Duration::from_millis(1500);
+/// In-flight DNS queries handled concurrently; excess datagrams are dropped
+/// and the client retries, which is normal DNS behaviour.
+const MAX_INFLIGHT: usize = 64;
 const DEFAULT_STATE_DIR: &str = "/run/npclient/allowroute";
 const RUNTIME_DIR: &str = "/run/npclient";
 const NFT_FILE: &str = "/run/npclient/allowroute.nft";
@@ -42,9 +46,20 @@ struct Args {
 
 struct Shared {
     tun: String,
+    tun_addrs: Vec<IpAddr>,
     state_dir: PathBuf,
     prefixes: Vec<String>,
     routes: Mutex<Vec<String>>,
+    skipped_dns: Mutex<HashSet<IpAddr>>,
+}
+
+/// Returns the in-flight slot on drop, even when the worker panics.
+struct Inflight(Arc<AtomicUsize>);
+
+impl Drop for Inflight {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
 }
 
 fn main() {
@@ -122,9 +137,11 @@ fn run(args: Args) -> io::Result<()> {
     fs::create_dir_all(&args.state_dir)?;
     let shared = Arc::new(Shared {
         tun: args.tun.clone(),
+        tun_addrs: iface_addrs(&args.tun),
         state_dir: args.state_dir.clone(),
         prefixes: args.prefixes.clone(),
         routes: Mutex::new(Vec::new()),
+        skipped_dns: Mutex::new(HashSet::new()),
     });
     for prefix in &args.prefixes {
         if !is_prefix(prefix) {
@@ -167,21 +184,48 @@ fn run(args: Args) -> io::Result<()> {
     let mut redirect_guard = RedirectGuard {
         active: redirect_installed,
     };
+    let udp = Arc::new(udp);
     eprintln!(
-        "allowroute: tun {} prefixes {} tunnel-dns {}",
+        "allowroute: tun {} prefixes {} tunnel-dns {} system-dns {}",
         args.tun,
         args.prefixes.join(","),
-        args.tunnel_dns.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
+        args.tunnel_dns.iter().map(ToString::to_string).collect::<Vec<_>>().join(","),
+        system_resolvers(&shared)
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(",")
     );
     let tcp_shared = Arc::clone(&shared);
     let tunnel_dns = args.tunnel_dns.clone();
     thread::spawn(move || tcp_loop(tcp, tcp_shared, tunnel_dns));
+    let inflight = Arc::new(AtomicUsize::new(0));
+    let mut last_drop_notice = Instant::now() - Duration::from_secs(60);
     while !STOP.load(Ordering::Relaxed) {
         let mut buf = [0u8; 4096];
         match udp.recv_from(&mut buf) {
             Ok((len, src)) => {
-                let reply = handle_query(&buf[..len], &shared, &args.tunnel_dns);
-                let _ = udp.send_to(&reply, src);
+                // One slow upstream must not serialize every client behind it.
+                // Only this recv thread increments, so inflight never exceeds
+                // MAX_INFLIGHT; excess datagrams drop and clients retry.
+                if inflight.load(Ordering::Relaxed) >= MAX_INFLIGHT {
+                    if last_drop_notice.elapsed() > Duration::from_secs(10) {
+                        eprintln!("allowroute: dropping DNS queries: {MAX_INFLIGHT} already in flight");
+                        last_drop_notice = Instant::now();
+                    }
+                    continue;
+                }
+                inflight.fetch_add(1, Ordering::Relaxed);
+                let udp = Arc::clone(&udp);
+                let shared = Arc::clone(&shared);
+                let tunnel_dns = args.tunnel_dns.clone();
+                let guard = Inflight(Arc::clone(&inflight));
+                let query = buf[..len].to_vec();
+                thread::spawn(move || {
+                    let _guard = guard;
+                    let reply = handle_query(&query, &shared, &tunnel_dns);
+                    let _ = udp.send_to(&reply, src);
+                });
             }
             Err(err) if err.kind() == io::ErrorKind::WouldBlock || err.kind() == io::ErrorKind::TimedOut => {}
             Err(err) => eprintln!("allowroute: udp: {err}"),
@@ -246,7 +290,7 @@ fn tcp_loop(listener: TcpListener, shared: Arc<Shared>, tunnel_dns: Vec<IpAddr>)
 }
 
 fn handle_query(query: &[u8], shared: &Shared, tunnel_dns: &[IpAddr]) -> Vec<u8> {
-    let system = system_resolvers();
+    let system = system_resolvers(shared);
     let system_resp = query_dns(query, &system);
     let system_addrs = system_resp.as_ref().and_then(|pkt| inspect_dns(pkt)).map(|view| view.answers).unwrap_or_default();
     let looked = decide(&system_addrs, &[]);
@@ -365,7 +409,7 @@ fn socket_addrs(ips: &[IpAddr]) -> Vec<SocketAddr> {
     ips.iter().map(|ip| SocketAddr::new(*ip, 53)).collect()
 }
 
-fn system_resolvers() -> Vec<SocketAddr> {
+fn system_resolvers(shared: &Shared) -> Vec<SocketAddr> {
     let mut out = Vec::new();
     for path in ["/run/systemd/resolve/resolv.conf", "/etc/resolv.conf"] {
         let Ok(text) = fs::read_to_string(path) else { continue };
@@ -378,6 +422,13 @@ fn system_resolvers() -> Vec<SocketAddr> {
             if is_loopback(addr) {
                 continue;
             }
+            if !underlay_route(addr, &shared.tun, &shared.tun_addrs) {
+                let mut noted = shared.skipped_dns.lock().expect("skipped_dns");
+                if noted.insert(addr) {
+                    eprintln!("allowroute: ignoring nameserver {addr}: only reachable via {}", shared.tun);
+                }
+                continue;
+            }
             let sock = SocketAddr::new(addr, 53);
             if !out.contains(&sock) {
                 out.push(sock);
@@ -388,6 +439,58 @@ fn system_resolvers() -> Vec<SocketAddr> {
         }
     }
     out
+}
+
+/// Addresses assigned to the tunnel interface itself; they can never answer
+/// DNS because they are us.
+fn iface_addrs(tun: &str) -> Vec<IpAddr> {
+    let Ok(out) = Command::new(ip_bin()).args(["-o", "addr", "show", "dev", tun]).output() else {
+        return Vec::new();
+    };
+    if !out.status.success() {
+        return Vec::new();
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut addrs = Vec::new();
+    let mut parts = text.split_whitespace();
+    while let Some(token) = parts.next() {
+        if token != "inet" && token != "inet6" {
+            continue;
+        }
+        if let Some(addr) = parts
+            .next()
+            .and_then(|addr| addr.split('/').next())
+            .and_then(|addr| addr.parse::<IpAddr>().ok())
+        {
+            addrs.push(addr);
+        }
+    }
+    addrs
+}
+
+/// True when `ip` can be reached without the tunnel. A nameserver that only
+/// exists behind the VPN — the tunnel's own address, or corporate DNS that
+/// another tool wrote into resolv.conf — cannot serve the underlay and would
+/// stall every query behind its timeout. Fail open when the route cannot be
+/// determined: a wrong keep costs one timeout, a wrong drop loses a resolver.
+fn underlay_route(ip: IpAddr, tun: &str, tun_addrs: &[IpAddr]) -> bool {
+    let family = if ip.is_ipv4() { "-4" } else { "-6" };
+    let Ok(out) = Command::new(ip_bin()).args([family, "route", "get", &ip.to_string()]).output() else {
+        return true;
+    };
+    if !out.status.success() {
+        return true;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    if route_uses_dev(&text, tun) {
+        return false;
+    }
+    // The tunnel's own addresses resolve through the local table (`dev lo`);
+    // other local addresses (a resolver bound to the WiFi address, say) stay.
+    if route_uses_dev(&text, "lo") && tun_addrs.contains(&ip) {
+        return false;
+    }
+    true
 }
 
 fn is_loopback(ip: IpAddr) -> bool {

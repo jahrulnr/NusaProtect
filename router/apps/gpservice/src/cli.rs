@@ -57,7 +57,7 @@ impl Log for RedactingMacosLogger {
 }
 
 #[derive(Parser)]
-#[command(version = VERSION)]
+#[command(name = "npservice", version = VERSION)]
 struct Cli {
   #[clap(long)]
   #[cfg_attr(debug_assertions, clap(conflicts_with = "dev_standalone"))]

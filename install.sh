@@ -118,7 +118,7 @@ main() {
   fi
   echo
   info "=== Done! ==="
-  info "Launch NusaProtect from the application menu or run: gpclient launch-gui"
+  info "Launch NusaProtect from the application menu or run: npclient launch-gui"
 }
 
 main "$@"

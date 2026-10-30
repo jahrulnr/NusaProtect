@@ -1,8 +1,8 @@
 {
   "name": "nusaprotect",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Jahrulnr",
-  "license": "GPL-2.0",
+  "license": "GPL-3.0-or-later",
   "private": true,
   "type": "module",
   "scripts": {

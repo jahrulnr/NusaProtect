@@ -34,9 +34,10 @@ const VERSION: &str = concat!(
 
 #[derive(Parser)]
 #[command(
+  name = "npauth",
   version = VERSION,
   author,
-  about = "The authentication component for the GlobalProtect VPN client, supports the SSO authentication method.",
+  about = "The authentication component for the NusaProtect VPN client, supports the SSO authentication method.",
   args_conflicts_with_subcommands = true,
   subcommand_negates_reqs = true,
   help_template = "\
@@ -49,7 +50,7 @@ const VERSION: &str = concat!(
 
 {all-args}{after-help}
 
-See 'gpauth -h' for more information.
+See 'npauth -h' for more information.
 "
 )]
 struct Cli {

@@ -2,7 +2,7 @@
 name = "nusaprotect"
 version = "3.2.0"
 authors = ["Elane Faisal-Sage <elane@linux.com>", "Jahrulnr"]
-license = "GPL-2.0"
+license = "GPL-3.0-or-later"
 rust-version = "1.90"
 edition = "2024"
 

@@ -670,7 +670,7 @@ fn classify_openconnect_result(
 }
 
 fn direct_gateway_command(gateway: &str) -> String {
-  format!("gpauth --gateway {gateway} | sudo gpclient connect {gateway} --as-gateway --cookie-on-stdin")
+  format!("npauth --gateway {gateway} | sudo npclient connect {gateway} --as-gateway --cookie-on-stdin")
 }
 
 pub(super) fn write_pid_file(lock_file: &Path) -> bool {
@@ -823,7 +823,7 @@ mod tests {
   fn direct_gateway_recommendation_uses_gateway_server() {
     assert_eq!(
       direct_gateway_command("gateway.example.test"),
-      "gpauth --gateway gateway.example.test | sudo gpclient connect gateway.example.test --as-gateway --cookie-on-stdin"
+      "npauth --gateway gateway.example.test | sudo npclient connect gateway.example.test --as-gateway --cookie-on-stdin"
     );
   }
 }

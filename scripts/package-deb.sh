@@ -35,6 +35,7 @@ install -d \
   "$pkg/usr/bin" \
   "$pkg/usr/libexec/npclient" \
   "$pkg/usr/share/applications" \
+  "$pkg/usr/share/doc/nusaprotect" \
   "$pkg/usr/share/polkit-1/actions" \
   "$pkg/usr/share/icons/hicolor/scalable/apps" \
   "$pkg/usr/share/icons/hicolor/32x32/apps" \
@@ -59,6 +60,7 @@ install -m 755 "$root/router/packaging/files/usr/lib/NetworkManager/dispatcher.d
 install -m 755 "$root/router/packaging/files/usr/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down" \
   "$pkg/usr/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down"
 install -m 644 "$root/packaging/nusaprotect.desktop" "$pkg/usr/share/applications/nusaprotect.desktop"
+install -m 644 "$root/packaging/copyright" "$pkg/usr/share/doc/nusaprotect/copyright"
 install -m 644 "$root/src-tauri/icons/icon.svg" "$pkg/usr/share/icons/hicolor/scalable/apps/nusaprotect.svg"
 install -m 644 "$root/src-tauri/icons/32x32.png" "$pkg/usr/share/icons/hicolor/32x32/apps/nusaprotect.png"
 install -m 644 "$root/src-tauri/icons/64x64.png" "$pkg/usr/share/icons/hicolor/64x64/apps/nusaprotect.png"

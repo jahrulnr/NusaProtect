@@ -497,7 +497,7 @@ function SslSection() {
           userSelect: "text",
         }}
       >
-        gpclient --fix-openssl launch-gui
+        npclient --fix-openssl launch-gui
       </Box>
     </Stack>
   );
@@ -509,12 +509,13 @@ function LicenseSection() {
   return (
     <Stack spacing={1.5}>
       <Typography variant="body2" fontWeight={600}>
-        GNU General Public License v2.0
+        GNU General Public License v3.0
       </Typography>
       <Typography variant="body2" color="text.secondary">
         NusaProtect is free software: you can redistribute it and/or modify it
         under the terms of the GNU General Public License as published by the
-        Free Software Foundation, version 2.
+        Free Software Foundation, either version 3 or (at your option) any
+        later version.
       </Typography>
       <Typography variant="body2" color="text.secondary">
         This program is distributed in the hope that it will be useful, but
@@ -536,7 +537,7 @@ function LicenseSection() {
         Open-source components
       </Typography>
       {[
-        ["GlobalProtect-openconnect", "GPL-2.0"],
+        ["GlobalProtect-openconnect", "GPL-3.0"],
         ["OpenConnect", "LGPL-2.1"],
         ["React", "MIT"],
         ["Material UI", "MIT"],
@@ -560,13 +561,13 @@ function AboutSection() {
           NusaProtect
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Version 0.1.0
+          Version {import.meta.env.VITE_APP_VERSION}
         </Typography>
       </Box>
 
       <Typography variant="body2">
-        An open-source graphical front-end for the GlobalProtect-openconnect
-        CLI tools, supporting password and SSO (SAML) authentication.
+        An open-source GlobalProtect VPN client for Linux, with its own CLI and
+        background service.
       </Typography>
 
       <Typography variant="body2" color="warning.main" fontStyle="italic">
@@ -580,7 +581,7 @@ function AboutSection() {
       {[
         ["Author", "Jahrulnr"],
         ["Forked from", "GP OpenUI — Elane Faisal-Sage <elane@linux.com>"],
-        ["License", "GPL-2.0"],
+        ["License", "GPL-3.0-or-later"],
       ].map(([label, value]) => (
         <Box key={label} sx={{ display: "flex", gap: 2 }}>
           <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80 }}>
