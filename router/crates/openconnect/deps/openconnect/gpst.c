@@ -758,6 +758,25 @@ static int gpst_parse_config_xml(struct openconnect_info *vpninfo, xmlNode *xml_
 		}
 	}
 
+	/* Newer gateways (Prisma Access in particular) advertise a short
+	 * <timeout> alongside a much longer session <lifetime>. The PAN
+	 * client does not rekey the tunnel at <timeout>; the ESP session
+	 * lasts until <lifetime>. Rekeying at <timeout> fails on
+	 * SAML-authenticated sessions whose auth cookie has already
+	 * expired and takes the whole session down well before the
+	 * advertised lifetime. Schedule the rekey at the lifetime instead.
+	 * Keep a floor so a short remaining lifetime cannot spin the
+	 * keepalive loop into back-to-back rekey attempts. */
+	if (vpninfo->ssl_times.rekey_method == REKEY_TUNNEL &&
+	    vpninfo->gp_session_lifetime > 0) {
+		vpninfo->ssl_times.rekey = vpninfo->gp_session_lifetime;
+		if (vpninfo->ssl_times.rekey < 60)
+			vpninfo->ssl_times.rekey = 60;
+		vpn_progress(vpninfo, PRG_INFO,
+			     _("Session lifetime is %d minutes; rekey deferred to lifetime.\n"),
+			     vpninfo->gp_session_lifetime / 60);
+	}
+
 	if (vpninfo->gp_nlb.tunnel_opaque)
 		vpninfo->gp_nlb.enabled = 1;
 	if (vpninfo->gp_nlb.enabled && !vpninfo->gp_nlb.tunnel_vip) {

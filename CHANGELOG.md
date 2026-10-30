@@ -59,5 +59,11 @@ version and is not this package version.
   accepts `polkitd`/`pkexec` as alternatives, and the `*t64` library names
   used by the Ubuntu 24.04 time_t transition are listed as alternatives for
   `libgtk-3-0`, `libssl3`, `libgnutls30`, `libnettle8`, and `libhogweed6`.
+- Sessions no longer die at the gateway's `<timeout>` mark (~60 minutes on
+  Prisma Access) when a longer `<lifetime>` is advertised (~8h). openconnect
+  used to rekey the tunnel at `timeout - 60s`, which fails on
+  SAML-authenticated sessions whose auth cookie has already expired and
+  ends the whole session early; the rekey is now scheduled at `lifetime`
+  like the PAN client does.
   
 
