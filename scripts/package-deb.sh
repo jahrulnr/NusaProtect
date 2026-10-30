@@ -73,7 +73,7 @@ Section: net
 Priority: optional
 Architecture: $arch
 Maintainer: NusaProtect <https://github.com/jahrulnr/NusaProtect>
-Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3, ca-certificates, xdg-utils, libayatana-appindicator3-1, policykit-1, nftables, libxml2, libgnutls30, libnettle8, libhogweed6, libp11-kit0, libgmp10, liblz4-1
+Depends: libgtk-3-0 | libgtk-3-0t64, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3 | libssl3t64, ca-certificates, xdg-utils, libayatana-appindicator3-1, policykit-1 | polkitd, pkexec | policykit-1, nftables, libxml2, libgnutls30 | libgnutls30t64, libnettle8 | libnettle8t64, libhogweed6 | libhogweed6t64, libp11-kit0, libgmp10, liblz4-1
 Description: NusaProtect GlobalProtect client
  GUI and tunnel programs in one package. Public addresses stay on the normal
  network. 10.0.0.0/8 and other non-public answers go through the tunnel.

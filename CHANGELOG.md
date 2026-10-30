@@ -11,6 +11,16 @@ version and is not this package version.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-30
+
+### Fixed
+
+- Make the .deb installable across Debian and Ubuntu releases. `policykit-1`
+  no longer exists on Debian trixie and newer Ubuntu; the package now
+  accepts `polkitd`/`pkexec` as alternatives, and the `*t64` library names
+  used by the Ubuntu 24.04 time_t transition are listed as alternatives for
+  `libgtk-3-0`, `libssl3`, `libgnutls30`, `libnettle8`, and `libhogweed6`.
+
 ## [0.1.0] - 2026-10-30
 
 ### Added
