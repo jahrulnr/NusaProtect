@@ -1,0 +1,10 @@
+Origin: NusaProtect
+Label: NusaProtect
+Suite: stable
+Codename: stable
+Architectures: amd64
+Components: main
+Date: Fri, 30 Oct 2026 11:23:24 +0000
+SHA256:
+ 0d496dc6d430f3bad13c71b8f95eb1b629a97814c13871e69d8f3560225becb3      910 main/binary-amd64/Packages
+ c8737aa6d6d8c2482dda2905e40ca3780ea3f2c5b5107039fc4da52bacddd884      605 main/binary-amd64/Packages.gz
