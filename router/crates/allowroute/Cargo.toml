@@ -1,0 +1,12 @@
+[package]
+name = "allowroute"
+description = "Send non-public DNS answers through the GlobalProtect tunnel"
+rust-version.workspace = true
+version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+libc = "0.2"

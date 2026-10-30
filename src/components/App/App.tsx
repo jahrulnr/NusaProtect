@@ -50,6 +50,7 @@ type StoredSettings = {
   clientVersion?: string;
   userAgent?: string;
   vpncScript?: string;
+  vpnPrefixes?: string;
   reconnectTimeout?: string;
   mtu?: string;
   submitHipReport?: boolean;
@@ -71,6 +72,7 @@ const numArg = (v?: string): number | null => {
 };
 const tunnelArgs = (s: StoredSettings) => ({
   vpncScript: s.vpncScript?.trim() || null,
+  vpnPrefixes: s.vpnPrefixes?.trim() || "10.0.0.0/8",
   reconnectTimeout: numArg(s.reconnectTimeout),
   mtu: numArg(s.mtu),
   submitHipReport: s.submitHipReport ?? true,

@@ -76,6 +76,7 @@ interface Settings {
   clientVersion: string;
   userAgent: string;
   vpncScript: string;
+  vpnPrefixes: string;
   reconnectTimeout: string;
   mtu: string;
   submitHipReport: boolean;
@@ -104,6 +105,7 @@ const DEFAULT_SETTINGS: Settings = {
   clientVersion: "",
   userAgent: "",
   vpncScript: "/etc/vpnc/vpnc-script",
+  vpnPrefixes: "10.0.0.0/8",
   reconnectTimeout: "",
   mtu: "",
   submitHipReport: true,
@@ -168,6 +170,7 @@ function SettingField({
   placeholder,
   password,
   error,
+  hint,
   onChange,
 }: {
   label: string;
@@ -175,6 +178,7 @@ function SettingField({
   placeholder?: string;
   password?: boolean;
   error?: string;
+  hint?: string;
   onChange: (v: string) => void;
 }) {
   return (
@@ -190,7 +194,7 @@ function SettingField({
         placeholder={placeholder}
         type={password ? "password" : "text"}
         error={!!error}
-        helperText={error}
+        helperText={error || hint}
         onChange={(e) => onChange(e.target.value)}
       />
     </Box>
@@ -352,6 +356,13 @@ function ConnectionSection({
         label="VPNC Script"
         value={s.vpncScript}
         onChange={(v) => set({ vpncScript: v })}
+      />
+      <SettingField
+        label="VPN prefixes"
+        value={s.vpnPrefixes}
+        placeholder="10.0.0.0/8"
+        hint="CIDRs routed through the tunnel. Empty uses 10.0.0.0/8."
+        onChange={(v) => set({ vpnPrefixes: v })}
       />
       <SettingField
         label="Reconnect Timeout"

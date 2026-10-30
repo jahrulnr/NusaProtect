@@ -1,0 +1,129 @@
+#include <openconnect.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct vpn_session_info {
+	long auth_expiration;
+	int lifetime_secs;
+	long user_expires;
+	int lifetime_warning_prior;
+	const char *lifetime_warning_message;
+	int nlb_enabled;
+	const char *nlb_connected_gw_ip;
+} vpn_session_info;
+
+typedef void (*vpn_connected_callback)(int cmd_pipe_fd,
+				       const vpn_session_info *session_info,
+				       void *user_data);
+typedef void (*vpn_hip_report_callback)(void *user_data, const char *report,
+					 size_t length);
+
+typedef struct vpn_hip_script {
+	const char *path;
+	uid_t uid;
+	int uid_present;
+	void *validation_data;
+	openconnect_gp_hip_validate_fn validate;
+	const char *const *environment;
+	const char *cwd;
+} vpn_hip_script;
+
+typedef struct vpn_options {
+	void *user_data;
+	vpn_hip_report_callback on_hip_report_submitted;
+
+	const char *server;
+	const char *cookie;
+
+	const char *user_agent;
+	const char *os;
+	const char *os_version;
+	const char *client_version;
+	const char *host_id;
+	const char *local_hostname;
+
+	const char *script;
+	openconnect_configure_tun_fn configure_network;
+	const char *interface;
+	const int script_tun;
+	const struct openconnect_script_tun_launch *script_tun_launch;
+
+	const char *certificate;
+	const char *sslkey;
+	const char *key_password;
+	const char *servercert;
+
+	vpn_hip_script hip_script;
+	openconnect_gp_hip_generate_fn generate_hip;
+
+	const int reconnect_timeout;
+	const int mtu;
+	const int disable_ipv6;
+	const int gateway_ip_preference;
+	const int no_dtls;
+
+	const int dpd_interval;
+	const int no_xmlpost;
+} vpn_options;
+
+int vpn_connect(const vpn_options *options, vpn_connected_callback callback);
+extern int vpn_resolve_gateway(const char *node, const char *service,
+	const struct addrinfo *hints, struct addrinfo **result, unsigned int preference);
+int vpn_collect_hip_report(const vpn_hip_script *, const struct openconnect_gp_hip_request *,
+	const struct openconnect_gp_hip_control *, openconnect_gp_hip_generate_fn, void *, char *, size_t, size_t *);
+
+extern int vpn_attach_command_pipe(void *user_data, int fd);
+extern void vpn_detach_command_pipe(void *user_data);
+extern void vpn_script_started(void *user_data);
+enum vpn_tunnel_event {
+	VPN_TUNNEL_ESTABLISHED = 5,
+	VPN_TUNNEL_RECONNECTED,
+	VPN_TUNNEL_ENDED,
+};
+extern void vpn_tunnel_event(void *user_data, int event);
+extern void vpn_tunnel_configuration(void *user_data, const char *interface,
+				     const struct oc_ip_info *info);
+extern void vpn_tunnel_statistics(void *user_data, const struct oc_stats *stats);
+
+extern void vpn_log(int level, const char *msg);
+
+static char *format_message(const char *format, va_list args)
+{
+	va_list args_copy;
+	va_copy(args_copy, args);
+	int len = vsnprintf(NULL, 0, format, args_copy);
+	va_end(args_copy);
+
+	char *buffer = (char *)malloc(len + 1);
+	if (buffer == NULL) {
+		return NULL;
+	}
+
+	vsnprintf(buffer, len + 1, format, args);
+	return buffer;
+}
+
+static void _log(int level, ...)
+{
+	va_list args;
+	va_start(args, level);
+
+	char *format = va_arg(args, char *);
+	char *message = format_message(format, args);
+
+	va_end(args);
+
+	if (message == NULL) {
+		vpn_log(PRG_ERR, "Failed to format log message");
+	} else {
+		vpn_log(level, message);
+		free(message);
+	}
+}
+
+#define LOG(level, ...) _log(level, __VA_ARGS__)
+#define ERROR(...) LOG(PRG_ERR, __VA_ARGS__)
+#define INFO(...) LOG(PRG_INFO, __VA_ARGS__)
+#define DEBUG(...) LOG(PRG_DEBUG, __VA_ARGS__)
+#define TRACE(...) LOG(PRG_TRACE, __VA_ARGS__)

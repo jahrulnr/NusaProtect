@@ -606,7 +606,6 @@ dependencies = [
 [[package]]
 name = "common"
 version = "3.2.0"
-source = "git+https://github.com/yuezk/GlobalProtect-openconnect?tag=v3.2.0#915c130c708582a61bbd5ccf747f94347d732364"
 
 [[package]]
 name = "compile-time"
@@ -1646,7 +1645,6 @@ dependencies = [
 [[package]]
 name = "gpapi"
 version = "3.2.0"
-source = "git+https://github.com/yuezk/GlobalProtect-openconnect?tag=v3.2.0#915c130c708582a61bbd5ccf747f94347d732364"
 dependencies = [
  "anyhow",
  "base64 0.23.1",

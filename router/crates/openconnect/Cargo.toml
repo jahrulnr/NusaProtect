@@ -1,0 +1,20 @@
+[package]
+name = "openconnect"
+version.workspace = true
+edition.workspace = true
+license = "MIT"
+links = "openconnect"
+
+[dependencies]
+log.workspace = true
+libc = "0.2"
+is_executable.workspace = true
+
+[build-dependencies]
+cc = "1"
+autotools = "0.2"
+pkg-config = "0.3"
+fs_extra = "1"
+
+[dev-dependencies]
+tempfile = "3"

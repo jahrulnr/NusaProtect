@@ -1,0 +1,143 @@
+use std::{
+  io::Write,
+  net::{IpAddr, SocketAddr},
+};
+
+use browser_launcher::Browser as LaunchBrowser;
+use gpapi::auth::SamlAuthData;
+use log::info;
+use tokio::net::UdpSocket;
+
+use crate::{AuthCallbackReceiver, browser::auth_server::AuthServer, ensure_auth_callback_handler};
+
+pub struct BrowserAuthenticator<'a> {
+  auth_request: &'a str,
+  browser: &'a str,
+  browser_listen: Option<IpAddr>,
+}
+
+impl<'a> BrowserAuthenticator<'a> {
+  pub fn new(auth_request: &'a str, browser: &'a str, browser_listen: Option<IpAddr>) -> Self {
+    Self {
+      auth_request,
+      browser,
+      browser_listen,
+    }
+  }
+
+  pub async fn authenticate(&self) -> anyhow::Result<SamlAuthData> {
+    let callback_receiver = if is_manual_browser(self.browser) {
+      None
+    } else {
+      ensure_auth_callback_handler()?;
+      Some(AuthCallbackReceiver::bind()?)
+    };
+    let addr = self.determine_addr().await?;
+    let auth_server = AuthServer::new(addr)?;
+    let auth_url = auth_server.auth_url();
+
+    let auth_request = self.auth_request.to_string();
+    let auth_server_task = tokio::task::spawn_blocking(move || {
+      auth_server.serve_request(&auth_request);
+    });
+
+    if is_manual_browser(self.browser) {
+      info!(
+        r#"
+
+==== Manual Authentication Required ====
+
+Please open the following URL in your browser:
+
+{}
+
+After completing the authentication, please paste the authentication data back to this terminal.
+(The data should start with "globalprotectcallback:...")
+
+Note that the URL is only valid for a single use.
+"#,
+        auth_url
+      );
+      auth_server_task.await?;
+      return read_auth_data_from_stdin();
+    }
+
+    browser_launcher::open_url(&auth_url, LaunchBrowser::from_name(self.browser))?;
+
+    info!("Please continue the authentication process in the default browser");
+    callback_receiver.unwrap().receive().await
+  }
+
+  async fn determine_addr(&self) -> anyhow::Result<SocketAddr> {
+    if is_manual_browser(self.browser) {
+      let local_ip = match self.browser_listen {
+        Some(ip) => ip,
+        None => detect_local_ip().await?,
+      };
+      Ok(SocketAddr::new(local_ip, 0))
+    } else {
+      Ok(SocketAddr::from(([127, 0, 0, 1], 0)))
+    }
+  }
+}
+
+fn is_manual_browser(browser: &str) -> bool {
+  browser.eq_ignore_ascii_case("manual") || browser.eq_ignore_ascii_case("remote")
+}
+
+/// Detect the local IP address by creating a UDP socket and connecting to an external address
+async fn detect_local_ip() -> anyhow::Result<IpAddr> {
+  let socket = UdpSocket::bind("0.0.0.0:0").await?;
+  if let Err(err) = socket.connect("1.1.1.1:80").await {
+    anyhow::bail!("Failed to connect to external address to determine local IP: {}", err);
+  }
+  let local_addr = socket.local_addr()?;
+  let ip = local_addr.ip();
+  info!("Determined local IP address: {}", ip);
+
+  Ok(ip)
+}
+
+fn read_auth_data_from_stdin() -> anyhow::Result<SamlAuthData> {
+  eprint!("\nAuthentication callback (paste and press Enter): ");
+  std::io::stderr().flush()?;
+
+  let mut data = String::new();
+  std::io::stdin().read_line(&mut data)?;
+
+  let auth_data = SamlAuthData::from_gpcallback(data.trim())?;
+  Ok(auth_data)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn shared_launcher_keeps_auto_distinct_from_system_default() {
+    assert_eq!(LaunchBrowser::from_name("auto"), LaunchBrowser::Auto);
+    assert_eq!(LaunchBrowser::from_name("default"), LaunchBrowser::Default);
+  }
+
+  #[test]
+  fn browser_manual_remains_auth_specific() {
+    assert!(is_manual_browser("manual"));
+    assert!(is_manual_browser("MANUAL"));
+    assert!(is_manual_browser("remote"));
+    assert!(is_manual_browser("REMOTE"));
+    assert_ne!(LaunchBrowser::from_name("manual"), LaunchBrowser::Default);
+  }
+
+  #[tokio::test]
+  async fn manual_browser_uses_explicit_listen_address() {
+    let listen_ip = "192.168.107.15".parse().unwrap();
+    for browser in ["manual", "MANUAL", "remote", "REMOTE"] {
+      let authenticator = BrowserAuthenticator::new("request", browser, Some(listen_ip));
+
+      assert_eq!(
+        authenticator.determine_addr().await.unwrap(),
+        SocketAddr::new(listen_ip, 0)
+      );
+    }
+  }
+}

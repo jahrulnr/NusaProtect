@@ -1,0 +1,342 @@
+name: GH Release Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+      arch:
+        type: choice
+        description: 'Architecture to build'
+        required: true
+        default: all
+        options:
+          - all
+          - x86_64
+          - arm64
+      release-deb:
+        type: boolean
+        description: 'Build DEB package'
+        required: true
+        default: true
+      release-rpm:
+        type: boolean
+        description: 'Build RPM package'
+        required: true
+        default: true
+      release-pkg:
+        type: boolean
+        description: 'Build PKG package'
+        required: true
+        default: true
+      release-apk:
+        type: boolean
+        description: 'Build APK package'
+        required: true
+        default: true
+      release-binary:
+        type: boolean
+        description: 'Build binary package'
+        required: true
+        default: true
+      release-docker:
+        type: boolean
+        description: 'Publish Docker image'
+        required: true
+        default: true
+      gh-release:
+        type: boolean
+        description: 'Update GitHub release'
+        required: true
+        default: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check tag exists
+      uses: mukunku/tag-exists-action@v1.6.0
+      id: check-tag
+      with:
+        tag: ${{ inputs.tag }}
+    - name: Exit if tag does not exist
+      run: |
+        if [[ "${{ steps.check-tag.outputs.exists }}" == "false" ]]; then
+          echo "Tag ${{ inputs.tag }} does not exist"
+          exit 1
+        fi
+
+  setup-matrix:
+    needs:
+    - check
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.result }}
+    steps:
+    - name: Set up matrix
+      id: set-matrix
+      uses: actions/github-script@v7
+      with:
+        result-encoding: string
+        script: |
+          const inputs = ${{ toJson(inputs) }}
+          const { arch } = inputs
+          const osMap = {
+            "all": ["ubuntu-latest", "ubuntu-24.04-arm"],
+            "x86_64": ["ubuntu-latest"],
+            "arm64": ["ubuntu-24.04-arm"]
+          }
+
+          const package = Object.entries(inputs)
+            .filter(([key, value]) => key.startsWith('release-') && key !== 'release-docker' && value)
+            .map(([key, value]) => key.replace('release-', ''))
+
+          return JSON.stringify({
+            os: osMap[arch],
+            package,
+          })
+
+  build:
+    needs:
+    - setup-matrix
+    strategy:
+      matrix: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Prepare workspace
+      run: rm -rf build-${{ matrix.package }} && mkdir -p build-${{ matrix.package }}
+
+    - name: Download ${{ inputs.tag }} source code
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        gh -R yuezk/GlobalProtect-openconnect \
+          release download ${{ inputs.tag }} \
+          --pattern '*[^offline].tar.gz' \
+          --dir build-${{ matrix.package }}
+
+    - name: Build ${{ matrix.package }} package in Docker
+      # LIBXML2_STATIC is needed to avoid the dynamic linking issue on different distros
+      run: |
+        docker run --rm \
+          -v $(pwd)/build-${{ matrix.package }}:/workspace \
+          -e COREPACK_INTEGRITY_KEYS=0 \
+          -e LIBXML2_STATIC=1 \
+          -e INCLUDE_GUI=1 \
+          yuezk/gpdev:${{ matrix.package }}-builder-tauri2
+
+    - name: Install ${{ matrix.package }} package in Docker
+      run: |
+        docker run --rm \
+          -e COREPACK_INTEGRITY_KEYS=0 \
+          -v $(pwd)/build-${{ matrix.package }}:/workspace \
+          yuezk/gpdev:${{ matrix.package }}-builder-tauri2 \
+          bash install.sh
+
+    - name: Upload ${{ matrix.package }} package
+      uses: actions/upload-artifact@v7
+      with:
+        name: artifact-${{ matrix.os }}-${{ matrix.package }}
+        if-no-files-found: error
+        path: |
+          build-${{ matrix.package }}/artifacts/*
+
+  build-docker-image:
+    needs:
+    - check
+    if: ${{ inputs.release-docker }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+    - name: Prepare
+      run: |
+        platform=${{ matrix.platform }}
+        echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+    - name: Prepare workspace
+      run: rm -rf docker-image && mkdir -p docker-image/source
+
+    - name: Download ${{ inputs.tag }} source code
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        gh -R yuezk/GlobalProtect-openconnect \
+          release download ${{ inputs.tag }} \
+          --pattern '*[^offline].tar.gz' \
+          --dir docker-image
+        tar -xzf docker-image/*.tar.gz -C docker-image/source --strip-components=1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+    - name: Login to Docker Hub
+      uses: docker/login-action@v4
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+    - name: Build and push by digest
+      id: build
+      uses: docker/build-push-action@v7
+      with:
+        context: docker-image/source
+        file: docker-image/source/packaging/docker/alpine/Dockerfile
+        platforms: ${{ matrix.platform }}
+        outputs: type=image,name=yuezk/globalprotect-openconnect,push-by-digest=true,name-canonical=true,push=true
+    - name: Verify CLI tools
+      env:
+        IMAGE: yuezk/globalprotect-openconnect
+        DIGEST: ${{ steps.build.outputs.digest }}
+      run: |
+        docker run --rm "$IMAGE@$DIGEST" --help
+        docker run --rm --entrypoint gpauth "$IMAGE@$DIGEST" --help
+        docker run --rm --entrypoint sh "$IMAGE@$DIGEST" -lc 'test "$(id -u gp)" = "1000" && test "$SUDO_UID" = "1000"'
+    - name: Export digest
+      run: |
+        mkdir -p /tmp/digests
+        digest="${{ steps.build.outputs.digest }}"
+        touch "/tmp/digests/${digest#sha256:}"
+    - name: Upload digest
+      uses: actions/upload-artifact@v7
+      with:
+        name: digests-${{ env.PLATFORM_PAIR }}
+        path: /tmp/digests/*
+        if-no-files-found: error
+        retention-days: 1
+
+  publish-docker-image:
+    needs:
+    - build-docker-image
+    if: ${{ inputs.release-docker }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Download digests
+      uses: actions/download-artifact@v8
+      with:
+        path: /tmp/digests
+        pattern: digests-*
+        merge-multiple: true
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+    - name: Login to Docker Hub
+      uses: docker/login-action@v4
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+    - name: Publish Docker manifest
+      working-directory: /tmp/digests
+      env:
+        IMAGE: yuezk/globalprotect-openconnect
+        TAG: ${{ inputs.tag }}
+      run: |
+        VERSION="${TAG#v}"
+        tags=(-t "$IMAGE:$TAG")
+
+        if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          tags+=(-t "$IMAGE:$VERSION" -t "$IMAGE:latest")
+        fi
+
+        docker buildx imagetools create "${tags[@]}" \
+          $(printf "$IMAGE@sha256:%s " *)
+
+        "$GITHUB_WORKSPACE/scripts/verify-docker-publication.sh" "$IMAGE:$TAG" /tmp/digests "${{ inputs.arch }}"
+        if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          for alias in "$VERSION" latest; do
+            "$GITHUB_WORKSPACE/scripts/verify-docker-publication.sh" "$IMAGE:$alias" /tmp/digests "${{ inputs.arch }}"
+          done
+        fi
+
+  gh-release:
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    if: ${{ inputs.gh-release }}
+    outputs:
+      stable_version: ${{ steps.stable-release.outputs.version }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+    - name: Prepare workspace
+      run: rm -rf gh-release && mkdir gh-release
+    - name: Checkout GlobalProtect-openconnect
+      uses: actions/checkout@v6
+      with:
+        token: ${{ secrets.GH_PAT }}
+        repository: yuezk/GlobalProtect-openconnect
+        ref: ${{ github.ref }}
+        path: gh-release/gp
+        submodules: recursive
+    - name: Download artifact
+      uses: actions/download-artifact@v8
+      with:
+        path: gh-release
+    - name: Rename APK artifacts
+      run: |
+        shopt -s nullglob
+
+        for file in gh-release/artifact-ubuntu-latest-apk/*.apk; do
+          mv "$file" "${file%.apk}-x86_64.apk"
+        done
+        for file in gh-release/artifact-ubuntu-24.04-arm-apk/*.apk; do
+          mv "$file" "${file%.apk}-aarch64.apk"
+        done
+    - name: Generate release asset checksums
+      run: |
+        cd gh-release/gp
+        mkdir -p .build
+        scripts/release-assets.sh all "$GITHUB_WORKSPACE/gh-release" > .build/release-assets.txt
+        if [ ! -s .build/release-assets.txt ]; then
+          echo "No release assets found"
+          exit 1
+        fi
+        while IFS= read -r file; do
+          digest=$(sha256sum "$file" | cut -d ' ' -f 1)
+          printf '%s  %s\n' "$digest" "$(basename "$file")"
+        done < .build/release-assets.txt > .build/release-assets.sha256
+    - name: Attest release assets
+      uses: actions/attest-build-provenance@v4
+      with:
+        subject-checksums: gh-release/gp/.build/release-assets.sha256
+    - name: Upload release assets
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        mapfile -t files < gh-release/gp/.build/release-assets.txt
+        if [[ "${{ inputs.tag }}" == "snapshot" ]]; then
+          for file in "${files[@]}"; do
+            gh release upload snapshot "$file" --clobber \
+              --repo yuezk/GlobalProtect-openconnect
+          done
+        else
+          gh-release/gp/scripts/upload-release-assets.sh "${{ inputs.tag }}" "${files[@]}"
+        fi
+
+    - name: Resolve stable release version
+      id: stable-release
+      env:
+        TAG: ${{ inputs.tag }}
+      run: |
+        if [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+        fi
+
+  update-flake-hashes:
+    needs: gh-release
+    if: ${{ inputs.release-binary && inputs.arch == 'all' && needs.gh-release.outputs.stable_version != '' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/update-flake-hashes.yaml
+    with:
+      version: ${{ needs.gh-release.outputs.stable_version }}
+      release_tag: ${{ inputs.tag }}

@@ -1,257 +1,100 @@
 #!/usr/bin/env bash
-# install.sh — Build and install NusaProtect, replacing the upstream gpgui binary.
+# install.sh — Install the NusaProtect .deb from GitHub.
 #
-# This script:
-#   1. Installs build dependencies (Rust, Node.js, pnpm, WebKitGTK, etc.)
-#   2. Installs GlobalProtect-openconnect (gpservice + gpclient) from upstream
-#   3. Builds this Tauri app
-#   4. Replaces the system gpgui binary with the one from this repo
-#   5. Installs the NusaProtect desktop entry and application icons
+# The package contains the GUI and the VPN backend. Debian and Ubuntu can
+# install it with apt. Other distributions should use `make install`, which
+# builds this tree and does not download anything.
 #
-# Supported distros: Debian/Ubuntu, Fedora/RHEL, Arch Linux
+# CI publishes one tag, v<version>, from src-tauri/Cargo.toml. A new tag is
+# created only when that version is not already published. A private
+# repository needs `gh auth login`.
 
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# The built artifact is named `nusaprotect`, but it MUST be installed as
-# `gpgui`: `gpclient launch-gui` resolves the GUI as a sibling binary named
-# `gpgui` next to gpclient (upstream binary_paths::gpgui), and probes
-# `<file> --version`. The installed filename is functional, not branding.
-APP_BINARY="nusaprotect"
-INSTALL_NAME="gpgui"
-INSTALL_DIR="/usr/bin"
-GP_UPSTREAM_INSTALL_URL="https://github.com/yuezk/GlobalProtect-openconnect/releases/latest/download/install.sh"
+NUSAPROTECT_REPO="${NUSAPROTECT_REPO:-jahrulnr/NusaProtect}"
+NUSAPROTECT_APT_URL="${NUSAPROTECT_APT_URL:-https://jahrulnr.github.io/NusaProtect}"
+# Empty means the newest v* package release. Set this to pin a tag.
+NUSAPROTECT_RELEASE="${NUSAPROTECT_RELEASE:-}"
+ROOT="$(CDPATH= cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 info()    { printf '\033[0;32m[INFO]\033[0m  %s\n' "$*"; }
-warn()    { printf '\033[0;33m[WARN]\033[0m  %s\n' "$*"; }
 error()   { printf '\033[0;31m[ERROR]\033[0m %s\n' "$*" >&2; }
 die()     { error "$*"; exit 1; }
 
 have() { command -v "$1" &>/dev/null; }
 
-detect_pm() {
-  if have apt-get;  then echo apt
-  elif have dnf;    then echo dnf
-  elif have pacman; then echo pacman
-  else die "Unsupported package manager. Install dependencies manually and re-run."
-  fi
-}
-
-# ---------------------------------------------------------------------------
-# 1. Build dependencies
-# ---------------------------------------------------------------------------
-install_build_deps() {
-  local pm
-  pm="$(detect_pm)"
-  info "Detected package manager: $pm"
-  info "Installing build dependencies..."
-
-  case "$pm" in
-    apt)
-      sudo apt-get update -q
-      sudo apt-get install -y --no-install-recommends \
-        curl build-essential pkg-config \
-        libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
-        libjavascriptcoregtk-4.1-dev librsvg2-dev \
-        libsoup-3.0-dev file patchelf
-      ;;
-    dnf)
-      sudo dnf install -y \
-        curl gcc gcc-c++ make pkg-config \
-        openssl-devel gtk3-devel webkit2gtk4.1-devel \
-        javascriptcoregtk4.1-devel librsvg2-devel \
-        libsoup3-devel file patchelf
-      ;;
-    pacman)
-      sudo pacman -Sy --needed --noconfirm \
-        curl base-devel openssl gtk3 webkit2gtk-4.1 \
-        librsvg file patchelf
-      ;;
+deb_arch() {
+  case "$(uname -m)" in
+    x86_64) printf 'amd64\n' ;;
+    aarch64|arm64) printf 'arm64\n' ;;
+    *) die "No .deb is published for $(uname -m). Run 'make install' to build from this tree." ;;
   esac
-
-  info "Build dependencies installed."
 }
 
-# ---------------------------------------------------------------------------
-# 2. Rust
-# ---------------------------------------------------------------------------
-install_rust() {
-  if have rustup; then
-    info "rustup already installed; updating toolchain..."
-    rustup update stable
-  elif have cargo; then
-    info "Rust (cargo) already present; skipping install."
-  else
-    info "Installing Rust via rustup..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-    # Make cargo available in the current shell
-    # shellcheck source=/dev/null
-    source "${HOME}/.cargo/env"
-  fi
-
-  local rust_ver
-  rust_ver="$(rustc --version 2>/dev/null | awk '{print $2}')"
-  info "Rust version: $rust_ver"
-
-  # Minimum version required by Cargo.toml: 1.85
-  local min_ver="1.85"
-  if [[ "$(printf '%s\n' "$min_ver" "$rust_ver" | sort -V | head -1)" != "$min_ver" ]]; then
-    die "Rust $min_ver or newer is required (found $rust_ver). Run: rustup update stable"
-  fi
-}
-
-# ---------------------------------------------------------------------------
-# 3. Node.js + pnpm
-# ---------------------------------------------------------------------------
-install_node() {
-  if ! have node; then
-    info "Node.js not found. Installing via NodeSource (LTS)..."
-    local pm
-    pm="$(detect_pm)"
-    case "$pm" in
-      apt)
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-        ;;
-      dnf)
-        curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo -E bash -
-        sudo dnf install -y nodejs
-        ;;
-      pacman)
-        sudo pacman -Sy --needed --noconfirm nodejs npm
-        ;;
-    esac
-  fi
-  info "Node.js version: $(node --version)"
-}
-
-install_pnpm() {
-  if have pnpm; then
-    info "pnpm already installed ($(pnpm --version))."
+resolve_release_tag() {
+  local tag
+  if [[ -n "$NUSAPROTECT_RELEASE" ]]; then
+    printf '%s\n' "$NUSAPROTECT_RELEASE"
     return
   fi
-  info "Installing pnpm..."
-  # Use corepack if available (ships with Node 16+)
-  if have corepack; then
-    sudo corepack enable
-    corepack prepare pnpm@latest --activate
+  if have gh && gh auth status >/dev/null 2>&1; then
+    tag="$(gh release list --repo "$NUSAPROTECT_REPO" --limit 100 --json tagName \
+      --jq '[.[] | select(.tagName | test("^v[0-9]"))][0].tagName')"
   else
-    npm install -g pnpm
+    tag="$(curl -fsSL "https://api.github.com/repos/${NUSAPROTECT_REPO}/releases?per_page=100" \
+      | python3 -c 'import json,sys,re
+rels=json.load(sys.stdin)
+for rel in rels:
+    name=rel.get("tag_name","")
+    if re.match(r"v[0-9]", name):
+        print(name)
+        break')"
   fi
-  info "pnpm version: $(pnpm --version)"
+  if [[ -z "$tag" || "$tag" == "null" ]]; then
+    die "No v* release found on ${NUSAPROTECT_REPO}. Set NUSAPROTECT_RELEASE to a tag, or run 'make install' to build from this tree."
+  fi
+  printf '%s\n' "$tag"
 }
 
-# ---------------------------------------------------------------------------
-# 4. GlobalProtect-openconnect (upstream: gpservice + gpclient)
-#
-# NusaProtect is only a GUI — the VPN work is done by the upstream gpservice
-# daemon and gpclient launcher. Both are required at runtime.
-# ---------------------------------------------------------------------------
-install_gp_upstream() {
-  if have gpservice && have gpclient; then
-    info "GlobalProtect-openconnect already installed; skipping upstream install."
-    return
-  fi
-
-  local missing=()
-  have gpservice || missing+=("gpservice")
-  have gpclient  || missing+=("gpclient")
-  warn "Required runtime components not found: ${missing[*]}"
-  warn "NusaProtect is a GUI frontend — without gpservice + gpclient the app cannot connect."
-
-  # Interactive shells get a yes/no choice; non-interactive runs keep the
-  # previous behavior (auto-install) so piped/automated installs don't break.
-  if [[ -t 0 ]]; then
-    local reply
-    read -r -p "Install GlobalProtect-openconnect (gpservice + gpclient) from upstream now? [Y/n] " reply
-    case "$reply" in
-      [Nn]|[Nn][Oo])
-        die "gpservice and gpclient are required. Install them from https://github.com/yuezk/GlobalProtect-openconnect then re-run this installer."
-        ;;
-    esac
-  fi
-
-  info "Installing GlobalProtect-openconnect from upstream..."
-  curl -fsSL "$GP_UPSTREAM_INSTALL_URL" | sudo bash
-
-  # The upstream installer may have failed silently for this distro.
-  have gpservice && have gpclient \
-    || die "Upstream install finished but gpservice/gpclient still missing. Check the log above."
-  info "GlobalProtect-openconnect installed."
+apt_repo_ready() {
+  curl -fsI --retry 2 "$NUSAPROTECT_APT_URL/dists/stable/InRelease" >/dev/null 2>&1
 }
 
-# ---------------------------------------------------------------------------
-# 5. Build this Tauri app
-# ---------------------------------------------------------------------------
-build_app() {
-  info "Building NusaProtect..."
-  cd "$REPO_DIR"
-
-  info "  Installing frontend dependencies..."
-  pnpm install --frozen-lockfile
-
-  info "  Running cargo tauri build..."
-  pnpm tauri build --no-bundle
-
-  local binary
-  binary="$REPO_DIR/src-tauri/target/release/$APP_BINARY"
-  if [[ ! -f "$binary" ]]; then
-    die "Build succeeded but binary not found at: $binary"
-  fi
-  info "Build complete: $binary"
+configure_apt_source() {
+  sudo install -d /usr/share/keyrings
+  sudo install -m 644 "$ROOT/packaging/apt/nusaprotect.gpg" /usr/share/keyrings/nusaprotect.gpg
+  printf 'deb [signed-by=/usr/share/keyrings/nusaprotect.gpg] %s stable main\n' "$NUSAPROTECT_APT_URL" \
+    | sudo tee /etc/apt/sources.list.d/nusaprotect.list >/dev/null
 }
 
-# ---------------------------------------------------------------------------
-# 6. Install / replace the gpgui binary
-# ---------------------------------------------------------------------------
-install_binary() {
-  local src="$REPO_DIR/src-tauri/target/release/$APP_BINARY"
-  local dest="$INSTALL_DIR/$INSTALL_NAME"
+install_deb() {
+  local arch asset url tmp tag
+  if ! have apt-get; then
+    die "The GitHub package is a .deb for Debian and Ubuntu. On this system, run 'make install'."
+  fi
+  arch="$(deb_arch)"
+  tag="$(resolve_release_tag)"
+  asset="nusaprotect_${tag#v}_${arch}.deb"
+  url="https://github.com/${NUSAPROTECT_REPO}/releases/download/${tag}/${asset}"
+  tmp="$(mktemp -d)"
 
-  info "Installing $APP_BINARY as $dest..."
-
-  if [[ -f "$dest" && ! -f "${dest}.upstream" ]]; then
-    info "  Backing up existing binary to ${dest}.upstream..."
-    sudo cp --preserve=all "$dest" "${dest}.upstream"
-  elif [[ -f "${dest}.upstream" ]]; then
-    info "  Keeping existing backup at ${dest}.upstream."
+  info "Downloading ${asset} from ${NUSAPROTECT_REPO} release ${tag}..."
+  if have gh && gh auth status >/dev/null 2>&1; then
+    gh release download "$tag" --repo "$NUSAPROTECT_REPO" --pattern "$asset" --dir "$tmp" --clobber \
+      || die "Could not download ${asset} from ${NUSAPROTECT_REPO} (${tag})."
+  else
+    curl -fL "$url" -o "${tmp}/${asset}" \
+      || die "Could not download ${url}. If the repository is still private, run 'gh auth login' and retry."
   fi
 
-  sudo install -m 755 "$src" "$dest"
-  info "Installed: $dest"
-}
-
-# ---------------------------------------------------------------------------
-# 7. Desktop entry + icons
-# ---------------------------------------------------------------------------
-install_desktop_assets() {
-  info "Installing NusaProtect desktop entry and icons..."
-
-  sudo install -m 644 -D "$REPO_DIR/packaging/nusaprotect.desktop" \
-    /usr/share/applications/nusaprotect.desktop
-
-  local size
-  for size in 32x32 64x64 128x128 256x256 512x512; do
-    local src="$REPO_DIR/src-tauri/icons/${size}.png"
-    # The icon set uses nonstandard filenames for some sizes.
-    case "$size" in
-      256x256) src="$REPO_DIR/src-tauri/icons/128x128@2x.png" ;;
-      512x512) src="$REPO_DIR/src-tauri/icons/icon.png" ;;
-    esac
-    sudo install -m 644 -D "$src" "/usr/share/icons/hicolor/${size}/apps/nusaprotect.png"
-  done
-  sudo install -m 644 -D "$REPO_DIR/src-tauri/icons/icon.svg" \
-    /usr/share/icons/hicolor/scalable/apps/nusaprotect.svg
-
-  # Refresh caches when the tools exist; harmless when they don't.
-  have update-desktop-database && sudo update-desktop-database /usr/share/applications || true
-  have gtk-update-icon-cache && sudo gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
-
-  info "Desktop entry: /usr/share/applications/nusaprotect.desktop"
-  info "Note: the upstream 'GP Connect' launcher entry (gpgui.desktop) still exists and launches the same app; remove it manually if unwanted."
+  info "Installing ${asset}..."
+  sudo apt-get update -q
+  sudo apt-get install -y "${tmp}/${asset}"
+  rm -rf "$tmp"
+  info "Installed ${asset}."
 }
 
 # ---------------------------------------------------------------------------
@@ -259,27 +102,23 @@ install_desktop_assets() {
 # ---------------------------------------------------------------------------
 main() {
   info "=== NusaProtect installer ==="
-  info "Repo: $REPO_DIR"
   echo
-
-  install_build_deps
+  if ! have apt-get; then
+    die "The GitHub package is a .deb for Debian and Ubuntu. On this system, run 'make install'."
+  fi
+  if apt_repo_ready; then
+    info "Configuring the apt source at ${NUSAPROTECT_APT_URL}..."
+    configure_apt_source
+    sudo apt-get update -q
+    sudo apt-get install -y nusaprotect
+    info "Sumber apt terpasang. Versi berikutnya masuk lewat: sudo apt update && sudo apt upgrade"
+  else
+    install_deb
+    info "Paket terpasang dari rilis GitHub. apt update melihat versi baru setelah repositori dan GitHub Pages publik."
+  fi
   echo
-  install_rust
-  echo
-  install_node
-  install_pnpm
-  echo
-  install_gp_upstream
-  echo
-  build_app
-  echo
-  install_binary
-  echo
-  install_desktop_assets
-  echo
-
   info "=== Done! ==="
-  info "You can now launch NusaProtect via your application launcher or by running: gpclient launch-gui"
+  info "Launch NusaProtect from the application menu or run: gpclient launch-gui"
 }
 
 main "$@"

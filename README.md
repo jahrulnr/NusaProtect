@@ -41,19 +41,13 @@ Run the install script as a regular user (it uses `sudo` internally where root i
 ./install.sh
 ```
 
-The script will:
+The script downloads `nusaprotect_<version>_<arch>.deb` from the newest `v*` release on [github.com/jahrulnr/NusaProtect](https://github.com/jahrulnr/NusaProtect) and installs it with apt. The package contains the GUI and the VPN backend. CI creates tag `v<version>` from `src-tauri/Cargo.toml` when that tag does not already exist. A private checkout needs `gh auth login`.
 
-1. Install system build dependencies (WebKitGTK, GTK 3, OpenSSL, etc.)
-2. Install Rust (≥ 1.85) via `rustup` if not already present
-3. Install Node.js LTS and pnpm if not already present
-4. Install GlobalProtect-openconnect (`gpservice` + `gpclient`) from the upstream package repository
-5. Build this Tauri app (`pnpm install` + `cargo tauri build`)
-6. Install the built `nusaprotect` binary as `/usr/bin/gpgui` (the original is backed up as `gpgui.upstream`) — the installed filename must stay `gpgui` because `gpclient launch-gui` resolves the GUI as a sibling binary of that name
-7. Install the `nusaprotect.desktop` launcher entry and application icons
+Debian and Ubuntu only. After the apt repository is public, later versions install with `sudo apt update && sudo apt upgrade`. To build and install from this tree, including on other distributions, run `make install`.
 
 The upstream `gpgui.desktop` launcher entry ("GP Connect") is left untouched — it launches the same app. Remove it manually if you only want the NusaProtect entry.
 
-**Supported distributions:** Debian/Ubuntu, Fedora/RHEL, Arch Linux (requires an AUR helper — `yay` or `paru`)
+**Supported distributions for `./install.sh`:** Debian/Ubuntu. Fedora, RHEL, and Arch can use `make install`.
 
 ## Usage
 

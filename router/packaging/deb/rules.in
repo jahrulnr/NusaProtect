@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+export INCLUDE_GUI = @INCLUDE_GUI@
+export BUILD_GUI_HELPER = @BUILD_GUI_HELPER@
+export BUILD_WEBVIEW_AUTH = @BUILD_WEBVIEW_AUTH@
+export DISABLE_RUST_TOOLCHAIN = 0
+
+export PATH := /usr/lib/rust-@RUST_VERSION@/bin:/usr/local/cargo/bin:$(PATH)
+
+%:
+	which cargo
+	which rustc
+	dh $@ --no-parallel

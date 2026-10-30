@@ -10,8 +10,8 @@ edition = "2024"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-gpapi = { git = "https://github.com/yuezk/GlobalProtect-openconnect", tag = "v3.2.0", features = ["clap", "webview-auth"] }
-common = { git = "https://github.com/yuezk/GlobalProtect-openconnect", tag = "v3.2.0" }
+gpapi = { path = "../router/crates/gpapi", features = ["clap", "webview-auth"] }
+common = { path = "../router/crates/common" }
 tauri = { version = "2", features = ["tray-icon"] }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"

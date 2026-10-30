@@ -1,0 +1,37 @@
+# Maintainer: Keinv Yue <k3vinyue@gmail.com>
+
+_pkgname=@PKG_NAME@
+pkgname=${_pkgname}
+pkgver="@VERSION@"
+pkgrel=@REVISION@
+pkgdesc="A GUI client for GlobalProtect VPN, based on OpenConnect, supports the SSO authentication method."
+arch=('x86_64' 'aarch64')
+url="https://github.com/yuezk/GlobalProtect-openconnect"
+license=('GPL3')
+makedepends=('make' 'pkg-config' 'cargo' 'file' 'autoconf' 'automake' 'gettext' 'libtool' 'patch')
+depends=('webkit2gtk-4.1' 'libappindicator-gtk3' 'librsvg' 'libsecret' 'openssl' 'appmenu-gtk-module'
+         'gnutls' 'libxml2' 'zlib' 'lz4' 'libp11-kit' 'nettle' 'gmp' 'xdg-utils')
+optdepends=('wmctrl: for window management')
+
+provides=('globalprotect-openconnect' 'gpclient' 'gpservice' 'gpauth' 'gpgui')
+install=gp.install
+
+source=("${_pkgname}-${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+options=('!strip')
+
+build() {
+  cd "$pkgname-$pkgver"
+
+  # Must unset the CFLAGS, otherwise the build fails
+  unset CFLAGS
+
+  make build
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  make install DESTDIR="$pkgdir"
+}

@@ -144,6 +144,7 @@ pub async fn connect_saml(
   client_version: Option<String>,
   user_agent: Option<String>,
   vpnc_script: Option<String>,
+  vpn_prefixes: Option<String>,
   reconnect_timeout: Option<u32>,
   mtu: Option<u32>,
   submit_hip_report: Option<bool>,
@@ -202,10 +203,11 @@ pub async fn connect_saml(
     client_version,
     user_agent,
   };
+  let vpnc_script = crate::vpn_prefixes::prepare(vpnc_script.as_deref(), vpn_prefixes.as_deref())?;
   let tunnel = TunnelConfig {
     disable_ipv6: disable_ipv6.unwrap_or(false),
     no_dtls: no_dtls.unwrap_or(false),
-    vpnc_script,
+    vpnc_script: Some(vpnc_script),
     reconnect_timeout: reconnect_timeout.unwrap_or(300),
     mtu: mtu.unwrap_or(0),
     hip_source: hip_source(submit_hip_report, hip_script_path),
@@ -264,6 +266,7 @@ pub async fn connect_password(
   client_version: Option<String>,
   user_agent: Option<String>,
   vpnc_script: Option<String>,
+  vpn_prefixes: Option<String>,
   reconnect_timeout: Option<u32>,
   mtu: Option<u32>,
   submit_hip_report: Option<bool>,
@@ -292,10 +295,11 @@ pub async fn connect_password(
     client_version,
     user_agent,
   };
+  let vpnc_script = crate::vpn_prefixes::prepare(vpnc_script.as_deref(), vpn_prefixes.as_deref())?;
   let tunnel = TunnelConfig {
     disable_ipv6: disable_ipv6.unwrap_or(false),
     no_dtls: no_dtls.unwrap_or(false),
-    vpnc_script,
+    vpnc_script: Some(vpnc_script),
     reconnect_timeout: reconnect_timeout.unwrap_or(300),
     mtu: mtu.unwrap_or(0),
     hip_source: hip_source(submit_hip_report, hip_script_path),

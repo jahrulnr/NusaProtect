@@ -1,0 +1,386 @@
+# Changelog
+
+## 3.2.0
+
+### Added
+
+- Added Local Proxy mode with configurable SOCKS5 and HTTP listeners, so selected apps can use the VPN without changing system routes or DNS.
+- Added a gateway IP preference for trying IPv4 or IPv6 first, available in Settings and through `gpclient connect --ip-preference`.
+
+### Improved
+
+- Enabled switching between the macOS main window and menu bar popover without restarting the app.
+- Refined gateway selection, connection status, and proxy listener details.
+- Made numeric settings validation clearer before saving.
+
+### Fixed
+
+- Fixed VPN shutdown waiting too long when a gateway stops responding to logout.
+- Fixed segmented controls sometimes losing the selected option when clicked.
+- Fixed app shortcuts failing to open with some Linux and BSD desktop launchers.
+
+## 3.1.0
+
+### Added
+
+- Added a Connection Details panel showing VPN information and live upload and download activity.
+- Added an optional terminal dashboard showing connection status and logs, enabled with `--dashboard`.
+- Added client certificate setup in Settings, with guidance when a VPN requires a certificate.
+
+### Improved
+
+- Refreshed Settings and dialogs, with automatic saving for most settings and Save and Cancel buttons for detailed edits.
+- Made sign-in errors clearer and added recovery options within the app.
+- Added a website address bar to the sign-in window.
+- Expanded support for client certificate files, including password-protected files, with clearer file and password errors.
+- Improved license activation error messages and troubleshooting logs.
+
+### Fixed
+
+- Fixed sign-in retries losing the selected VPN server after a security error.
+- Fixed mismatched certificate and key files being accepted and replacing a working certificate setup.
+- Fixed failed saves discarding certificate details or custom device report (HIP) edits, allowing a retry without re-entering changes.
+- Fixed theme, automatic-update, and logging settings appearing saved when saving had failed; errors are now shown and previous settings remain in use.
+- Fixed notifications disappearing too quickly on GNOME and clarified notification sender names and update titles.
+- Fixed connection failures with some VPN gateways.
+
+### Command-line notes
+
+- Renamed copy-and-paste browser sign-in to `--browser manual`; existing commands using `--browser remote` still work.
+- Removed the unneeded `--fix-openssl` option on macOS; existing macOS commands and scripts must omit it.
+
+## 3.0.5
+
+### Added
+
+- Added adaptive macOS app icons for light and dark appearances.
+
+### Fixed
+
+- Fixed macOS browser sign-in by automatically selecting the installed callback handler.
+- Improved app icon proportions in Finder and across the app, installer, and website.
+
+## 3.0.4
+
+### Added
+
+- Added `gpclient connect --background` with connection logs and graceful disconnect.
+
+### Fixed
+
+- Improved macOS service startup, relaunch, and quit responsiveness.
+- Updated app icons for clearer artwork across platforms.
+
+## 3.0.3
+
+### Fixed
+
+- Improved Wayland crash recovery on Linux and BSD.
+- Fixed pasted callbacks and prompts for remote browser sign-in.
+- Fixed legacy TLS configuration while preserving device identities.
+- Fixed diagnostics when optional tools are unavailable.
+- Fixed bundled macOS library paths and polished release notes in About.
+
+## 3.0.2
+
+### Added
+
+- Added `gpclient diagnostics` to collect system and client information for troubleshooting.
+
+### Fixed
+
+- Recognized WebKit Wayland rendering crashes now trigger one retry with DMABUF disabled when opening the GUI, first-time setup, or embedded browser sign-in.
+- Improved desktop rendering with opaque windows to reduce transparency-related flickering on Linux and BSD.
+- Browser sign-in retries refresh authentication data, and repeated failures report both attempts instead of leaving the client waiting.
+- Cancelling startup or sign-in now stops pending desktop child processes and version checks.
+
+## 3.0.1
+
+### Fixed
+
+- Fixed the bundled macOS CLI when launched through Homebrew.
+- Fixed browser sign-in failures leaving the CLI waiting without an error.
+- Fixed first-time startup on Linux and BSD when no system keyring is available.
+- Improved tray menu behavior on Linux and BSD.
+- Added clearer results when manually checking for updates.
+- Improved desktop dialogs, settings, keyboard focus, and Linux window controls.
+
+## 3.0.0
+
+### Added
+
+- GP Connect for Apple silicon Macs running macOS 13 or later.
+- Support for internal gateways that authenticate your device without creating a VPN tunnel.
+- More control over device compliance reports (HIP), including generated reports and custom scripts.
+- Desktop update notifications, with in-app updates on macOS and links to new releases on Linux and BSD.
+- JSON log output for CLI integrations and automation.
+
+### Changed
+
+- Refreshed the desktop connection view, gateway selection, and session details.
+- Improved browser sign-in, including opening your normal user's browser when the CLI runs with elevated privileges.
+- Improved session expiry warnings and session extension when allowed by your VPN administrator.
+- Updated license activation and recovery. Start the seven-day desktop trial by verifying your email address in the app.
+
+### Fixed
+
+- Improved cancellation, disconnect, and cached sign-in handling.
+- Improved desktop window and tray behavior across macOS, Linux, FreeBSD, and OpenBSD.
+- Improved package installation and desktop integration on Linux and BSD.
+
+## 2.6.5
+
+### Fixed
+
+- Fixed duplicate tray icons caused by both Tauri configuration and application code creating a tray icon (fix [#464](https://github.com/yuezk/GlobalProtect-openconnect/issues/464)).
+- Fixed a potential crash when VPN progress messages contain printf-style format specifiers.
+
+## 2.6.4
+
+### Fixed
+
+- Fixed gateway login MFA OTP retries sending duplicate `passwd` form fields, which could cause authentication to fail with HTTP 512 after 2.6.0 (fix [#626](https://github.com/yuezk/GlobalProtect-openconnect/issues/626)).
+
+## 2.6.3
+
+### Fixed
+
+- Fixed NixOS GUI launch authorization after package updates.
+- Fixed disconnect handling so a normal Ctrl+C logout no longer reports an error.
+- Fixed snapshot flake hash update automation for prebuilt Nix packages.
+
+## 2.6.2
+
+### Fixed
+
+- Fixed gateway fallback browser authentication when external browser authentication is explicitly requested.
+- Added logging for portal config default-browser behavior.
+- Added GUI managed configuration support with `gpgui.conf`, including reset to managed config.
+- Improved GUI config directory migration and managed license auto activation.
+
+## 2.6.1
+
+### Changed
+
+- Improved external browser authentication so `--browser` chooses Chrome first, then Firefox, then the system default browser.
+- Improved NixOS prebuilt package integration for launching helper binaries and desktop services.
+- Updated the release process to publish GitHub release notes from the changelog.
+
+### Fixed
+
+- Fixed NixOS GUI launch failures caused by package-local binary paths.
+- Fixed NixOS tray icon setup documentation for GNOME desktops.
+- Fixed browser authentication for portals that require a client certificate.
+- Fixed release automation so Nix flake hash updates are run manually after release assets are available.
+
+## 2.6.0
+
+### Added
+
+- Added automatic gateway selection with fallback to the next available gateway when early gateway connection steps fail.
+- Added optional cookie cache support for faster reconnects.
+- Added Microsoft Defender status reporting in HIP reports.
+- Added support for portals that require client-side checks before connection.
+- Added FreeBSD and OpenBSD package builds and release artifacts.
+- Added build provenance attestations for release assets.
+
+### Changed
+
+- Improved compatibility with official GlobalProtect client request behavior.
+- Improved SAML authentication behavior in the embedded webview.
+- Improved default browser authentication handling.
+- Improved host identity consistency across authentication, connection, and HIP flows.
+- Improved GUI gateway selection behavior and made the selection list more compact.
+- Updated NixOS installation instructions.
+
+### Fixed
+
+- Fixed a crash when opening settings on KDE/Wayland.
+- Fixed browser authentication when `gpclient` is started with `sudo`.
+- Fixed gateway fallback behavior when using `gpauth | gpclient --cookie-on-stdin`.
+- Fixed inconsistent host ID handling between GUI, CLI, OpenConnect, and HIP.
+- Fixed portal and gateway authentication cookie handling in several edge cases.
+- Fixed GUI connection state issues around gateway switching and cached credentials.
+
+## 2.5.4 - 2026-05-08
+
+- Add Alpine/musl gpgui release assets for x86_64 and aarch64.
+- Use the musl gpgui asset when the helper or package build runs on musl Linux.
+
+## 2.5.3 - 2026-05-08
+
+- Fix systemd-resolved DNS routing when no split-DNS domains are provided (fix [#604](https://github.com/yuezk/GlobalProtect-openconnect/issues/604)).
+- Log whether systemd-resolved uses server-provided split DNS or global VPN DNS.
+
+## 2.5.2 - 2026-05-06
+
+- Experimental: GUI/CLI add session expiry warnings and support automatic session extension when allowed by the portal.
+- GUI/CLI: expose additional OpenConnect connection options.
+- Fix Linux packages to vendor the `vpnc-script`.
+- Remove OpenConnect from the packaging dependency.
+- Fix reconnect handling by preserving GlobalProtect cookie fields.
+- Fix auth callback data parsing
+- Improve NixOS packaging and user-level installation docs.
+- Upgrade Rust, Tauri, Vite, frontend, and Rust dependencies.
+
+## 2.5.1 - 2025-12-22
+
+- Fix the `.deb` package installation issue (fix [#563](https://github.com/yuezk/GlobalProtect-openconnect/issues/563))
+- GUI: fix the tray icon size issue on GNOME Flashback (fix [#564](https://github.com/yuezk/GlobalProtect-openconnect/issues/564))
+- Improve the HIP report generation logic
+
+## 2.5.0 - 2025-12-08
+
+- GUI/CLI: statically link OpenConnect
+- GUI/CLI: support configure the client version
+- CLI: add the `-S/--script-tun` option to pass traffic to the `--script` handler
+- GUI: update the branding to `GP Connect`
+
+## 2.4.7 - 2025-11-12
+
+- Support NixOS package installation
+- Fix the VPNC script location on Void Linux
+- Upgrade to Rust 1.85
+- `--browser` without argument uses the system default browser
+
+## 2.4.6 - 2025-10-15
+
+- GUI: support the default configuration file for GUI client (fix [#492](https://github.com/yuezk/GlobalProtect-openconnect/issues/492))
+- GUI: add the option to not reuse the authentication cookies (fix [#540](https://github.com/yuezk/GlobalProtect-openconnect/issues/540))
+- GUI: improve the license validation logic (fix [#502](https://github.com/yuezk/GlobalProtect-openconnect/issues/502))
+- CLI: support the `--browser remote` option to use the remote browser for authentication ([#544](https://github.com/yuezk/GlobalProtect-openconnect/pull/544) by [@dark12](https://github.com/dark12))
+- CLI: fix gpclient disconnect bailing with client is already running issue ([#542](https://github.com/yuezk/GlobalProtect-openconnect/pull/542) by [@zeroepoch](https://github.com/zeroepoch))
+- CLI: fix the `--passwd-on-stdin` reads again on gateway failure ([#546](https://github.com/yuezk/GlobalProtect-openconnect/issues/546))
+
+## 2.4.5 - 2025-07-16
+
+- GUI/CLI: fix the issue that the custom port is not supported issue (fix [#404](https://github.com/yuezk/GlobalProtect-openconnect/issues/404))
+- CLI: add the `--force-dpd` option to specify the interval for DPD (Dead Peer Detection).
+- CLI: add the `-i/--interface` option to specify the interface to use.
+
+## 2.4.4 - 2025-02-09
+
+- GUI: fix multiple tray icons issue (fix [#464](https://github.com/yuezk/GlobalProtect-openconnect/issues/464))
+- CLI: check the cli running state before running the `gpclient` command (fix [#447](https://github.com/yuezk/GlobalProtect-openconnect/issues/447))
+
+## 2.4.3 - 2025-01-21
+
+- Do not use static default value for `--os-version` option.
+
+## 2.4.2 - 2025-01-20
+
+- Disconnect the VPN when sleep (fix [#166](https://github.com/yuezk/GlobalProtect-openconnect/issues/166), [#267](https://github.com/yuezk/GlobalProtect-openconnect/issues/267))
+
+## 2.4.1 - 2025-01-09
+
+- Fix the network issue with OpenSSL < 3.0.4
+- GUI: fix the Wayland compatibility issue
+- Support configure the log level
+- Log the detailed error message when network error occurs
+
+## 2.4.0 - 2024-12-26
+
+- Upgrade to Tauri 2.0
+- Support Ubuntu 22.04 and later
+
+## 2.3.9 - 2024-11-02
+
+- Enhance the OpenSSL compatibility mode (fix [#437](https://github.com/yuezk/GlobalProtect-openconnect/issues/437))
+
+## 2.3.8 - 2024-10-31
+
+- GUI: support configure the external browser to use for authentication (fix [#423](https://github.com/yuezk/GlobalProtect-openconnect/issues/423))
+- GUI: add option to remember the credential (fix [#420](https://github.com/yuezk/GlobalProtect-openconnect/issues/420))
+- GUI: fix the credential not saved issue (fix [#420](https://github.com/yuezk/GlobalProtect-openconnect/issues/420))
+- CLI: fix the default browser detection issue (fix [#416](https://github.com/yuezk/GlobalProtect-openconnect/issues/416))
+
+## 2.3.7 - 2024-08-16
+
+- Fix the Rust type inference regression [issue in 1.80](https://github.com/rust-lang/rust/issues/125319).
+
+## 2.3.6 - 2024-08-15
+
+- CLI: enhance the `gpauth` command to support external browser authentication
+- CLI: add the `--cookie-on-stdin` option to support read the cookie from stdin
+- CLI: support usage: `gpauth <portal> --browser <browser> 2>/dev/null | sudo gpclient connect <portal> --cookie-on-stdin`
+- CLI: fix the `--browser <browser>` option not working
+
+## 2.3.5 - 2024-08-14
+
+- Support configure `no-dtls` option
+- GUI: fix the tray icon disk usage issue (#398)
+- CLI: support specify the browser with `--browser <browser>` option (#405, #407, #397)
+- CLI: fix the `--os` option not working
+
+## 2.3.4 - 2024-07-08
+
+- Support the Internal Host Detection (fix [#377](https://github.com/yuezk/GlobalProtect-openconnect/issues/377))
+- CLI: support pass the password from stdin (fix [#381](https://github.com/yuezk/GlobalProtect-openconnect/issues/381))
+
+## 2.3.3 - 2024-06-23
+
+- GUI: add the remark field for the license activation
+- GUI: check the saved secret key length
+
+## 2.3.2 - 2024-06-17
+
+- Fix the CAS callback parsing issue (fix [#372](https://github.com/yuezk/GlobalProtect-openconnect/issues/372))
+- CLI: fix the `/tmp/gpauth.html` deletion issue (fix [#366](https://github.com/yuezk/GlobalProtect-openconnect/issues/366))
+- GUI: fix the license not working after reboot (fix [#376](https://github.com/yuezk/GlobalProtect-openconnect/issues/376))
+- GUI: add the license activation management link
+
+## 2.3.1 - 2024-05-21
+
+- Fix the `--sslkey` option not working
+
+## 2.3.0 - 2024-05-20
+
+- Support client certificate authentication (fix [#363](https://github.com/yuezk/GlobalProtect-openconnect/issues/363))
+- Support `--disable-ipv6`, `--reconnect-timeout` parameters (related: [#364](https://github.com/yuezk/GlobalProtect-openconnect/issues/364))
+- Use default labels if label fields are missing in prelogin response (fix [#357](https://github.com/yuezk/GlobalProtect-openconnect/issues/357))
+
+## 2.2.1 - 2024-05-07
+
+- GUI: Restore the default browser auth implementation (fix [#360](https://github.com/yuezk/GlobalProtect-openconnect/issues/360))
+
+## 2.2.0 - 2024-04-30
+
+- CLI: support authentication with external browser (fix [#298](https://github.com/yuezk/GlobalProtect-openconnect/issues/298))
+- GUI: support using file-based storage when the system keyring is not available.
+
+## 2.1.4 - 2024-04-10
+
+- Support MFA authentication (fix [#343](https://github.com/yuezk/GlobalProtect-openconnect/issues/343))
+- Improve the Gateway switcher UI
+
+## 2.1.3 - 2024-04-07
+
+- Support CAS authentication (fix [#339](https://github.com/yuezk/GlobalProtect-openconnect/issues/339))
+- CLI: Add `--as-gateway` option to connect as gateway directly (fix [#318](https://github.com/yuezk/GlobalProtect-openconnect/issues/318))
+- GUI: Support connect the gateway directly (fix [#318](https://github.com/yuezk/GlobalProtect-openconnect/issues/318))
+- GUI: Add an option to use symbolic tray icon (fix [#341](https://github.com/yuezk/GlobalProtect-openconnect/issues/341))
+
+## 2.1.2 - 2024-03-29
+
+- Treat portal as gateway when the gateway login is failed (fix #338)
+
+## 2.1.1 - 2024-03-25
+
+- Add the `--hip` option to enable HIP report
+- Fix not working in OpenSuse 15.5 (fix #336, #322)
+- Treat portal as gateway when the gateway login is failed (fix #338)
+- Improve the error message (fix #327)
+
+## 2.1.0 - 2024-02-27
+
+- Update distribution channel for `gpgui` to complaint with the GPL-3 license.
+- Add `mtu` option.
+- Retry auth if failed to obtain the auth cookie
+
+## 2.0.0 - 2024-02-05
+
+- Refactor using Tauri
+- Support HIP report
+- Support pass vpn-slice command
+- Do not error when the region field is empty
+- Update the auth window icon

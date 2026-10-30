@@ -1,0 +1,207 @@
+name: Test and build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-backend:
+    name: Backend release
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config autoconf automake autopoint libtool \
+            libssl-dev zlib1g-dev liblz4-dev \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev librsvg2-dev \
+            libsoup-3.0-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@1.91
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: router
+
+      - name: Build and pack backend
+        run: make backend-dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nusaprotect-backend-linux-x86_64
+          if-no-files-found: error
+          path: .build/nusaprotect-backend-linux-x86_64.tar.gz
+
+  build-frontend:
+    name: Frontend release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev librsvg2-dev \
+            libsoup-3.0-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Build NusaProtect GUI
+        run: make frontend
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nusaprotect-gui-linux-x86_64
+          if-no-files-found: error
+          path: src-tauri/target/release/nusaprotect
+
+  publish:
+    name: Publish deb GitHub release
+    needs: [build-backend, build-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: nusaprotect-backend-linux-x86_64
+          path: release-artifacts/backend
+      - uses: actions/download-artifact@v4
+        with:
+          name: nusaprotect-gui-linux-x86_64
+          path: release-artifacts/frontend
+      - name: Read package version
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          make check-version
+          version="$(tr -d '[:space:]' < VERSION)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - name: Check release tag does not already exist
+        id: tag_check
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git show-ref --tags --verify --quiet "refs/tags/$TAG" || git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::notice::Tag $TAG already exists. Skipping release; bump VERSION and add its changelog section to publish again."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Extract release notes
+        if: steps.tag_check.outputs.should_publish == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk -v version="$VERSION" '
+            $0 ~ "^## \\[" version "\\]( |$)" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "The changelog section for $VERSION is empty" >&2
+            exit 1
+          fi
+      - name: Build deb
+        if: steps.tag_check.outputs.should_publish == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts/backend/unpacked
+          tar -xzf release-artifacts/backend/nusaprotect-backend-linux-x86_64.tar.gz -C release-artifacts/backend/unpacked
+          mkdir -p .build
+          scripts/package-deb.sh \
+            --version "$VERSION" \
+            --arch amd64 \
+            --backend-dir release-artifacts/backend/unpacked \
+            --gui release-artifacts/frontend/nusaprotect \
+            --output ".build/nusaprotect_${VERSION}_amd64.deb"
+      - name: Publish apt repository
+        if: steps.tag_check.outputs.should_publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${APT_SIGNING_KEY}" ]; then
+            echo "APT_SIGNING_KEY secret is missing. The armored private key is the apt signing key." >&2
+            exit 1
+          fi
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends dpkg-dev
+          printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --import
+          key=$(cat packaging/apt/key-id)
+          repo=$(mktemp -d)
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote" gh-pages >/dev/null 2>&1; then
+            git clone --depth 1 --branch gh-pages "$remote" "$repo"
+          else
+            git init -b gh-pages "$repo"
+          fi
+          scripts/apt-repo.sh \
+            --deb ".build/nusaprotect_${VERSION}_amd64.deb" \
+            --repo "$repo" \
+            --key "$key"
+          git -C "$repo" add -A
+          git -C "$repo" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Publish apt repository for ${VERSION}"
+          git -C "$repo" push "$remote" HEAD:gh-pages
+          gh api --method POST -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/pages" \
+            -f "source[branch]=gh-pages" -f "source[path]=/" >/dev/null 2>&1 || true
+      - name: Create GitHub release
+        if: steps.tag_check.outputs.should_publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" ".build/nusaprotect_${VERSION}_amd64.deb" \
+            --target "${GITHUB_SHA}" \
+            --title "NusaProtect v${VERSION}" \
+            --notes-file release-notes.md
