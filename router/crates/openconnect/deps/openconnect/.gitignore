@@ -28,7 +28,8 @@ version.c
 /openconnect.8
 /openconnect.pc
 
-openconnect
+# Only the build-tree binary at the source root — not bash/openconnect.
+/openconnect
 nm-openconnect-auth-dialog
 Make.config
 Makefile.in
