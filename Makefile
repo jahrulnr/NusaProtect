@@ -59,30 +59,35 @@ all: backend frontend
 
 backend-dist: backend
 	rm -rf $(BACKEND_STAGE)
-	install -d $(BACKEND_STAGE)/bin $(BACKEND_STAGE)/libexec/gpclient
-	install -m 755 $(RELEASE_ROUTER)/gpclient $(BACKEND_STAGE)/bin/gpclient
-	install -m 755 $(RELEASE_ROUTER)/gpservice $(BACKEND_STAGE)/bin/gpservice
-	install -m 755 $(RELEASE_ROUTER)/gpauth $(BACKEND_STAGE)/bin/gpauth
-	install -m 755 $(RELEASE_ROUTER)/allowroute $(BACKEND_STAGE)/libexec/gpclient/allowroute
-	install -m 755 $(RELEASE_ROUTER)/gp-vpnc-script-installer $(BACKEND_STAGE)/libexec/gpclient/gp-vpnc-script-installer
-	install -m 755 $(RELEASE_ROUTER)/gp-hip-script-installer $(BACKEND_STAGE)/libexec/gpclient/gp-hip-script-installer
-	install -m 755 router/packaging/files/usr/libexec/gpclient/vpnc-script $(BACKEND_STAGE)/libexec/gpclient/vpnc-script
+	install -d $(BACKEND_STAGE)/bin $(BACKEND_STAGE)/libexec/npclient
+	install -m 755 $(RELEASE_ROUTER)/gpclient $(BACKEND_STAGE)/bin/npclient
+	install -m 755 $(RELEASE_ROUTER)/gpservice $(BACKEND_STAGE)/bin/npservice
+	install -m 755 $(RELEASE_ROUTER)/gpauth $(BACKEND_STAGE)/bin/npauth
+	install -m 755 $(RELEASE_ROUTER)/allowroute $(BACKEND_STAGE)/libexec/npclient/allowroute
+	install -m 755 $(RELEASE_ROUTER)/gp-vpnc-script-installer $(BACKEND_STAGE)/libexec/npclient/np-vpnc-script-installer
+	install -m 755 $(RELEASE_ROUTER)/gp-hip-script-installer $(BACKEND_STAGE)/libexec/npclient/np-hip-script-installer
+	install -m 755 router/packaging/files/usr/libexec/npclient/vpnc-script $(BACKEND_STAGE)/libexec/npclient/vpnc-script
 	tar -C $(BACKEND_STAGE) -czf $(BACKEND_TARBALL) bin libexec
 
 install: all
-	$(SUDO) install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/libexec/gpclient \
+	$(SUDO) install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/libexec/npclient \
 		$(DESTDIR)$(PREFIX)/share/applications $(DESTDIR)$(PREFIX)/share/polkit-1/actions \
-		$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps
-	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gpclient $(DESTDIR)$(PREFIX)/bin/gpclient
-	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gpservice $(DESTDIR)$(PREFIX)/bin/gpservice
-	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gpauth $(DESTDIR)$(PREFIX)/bin/gpauth
-	$(SUDO) install -m 755 $(RELEASE_GUI) $(DESTDIR)$(PREFIX)/bin/gpgui
-	$(SUDO) install -m 755 $(RELEASE_ROUTER)/allowroute $(DESTDIR)$(PREFIX)/libexec/gpclient/allowroute
-	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gp-vpnc-script-installer $(DESTDIR)$(PREFIX)/libexec/gpclient/gp-vpnc-script-installer
-	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gp-hip-script-installer $(DESTDIR)$(PREFIX)/libexec/gpclient/gp-hip-script-installer
-	$(SUDO) install -m 755 router/packaging/files/usr/libexec/gpclient/vpnc-script $(DESTDIR)$(PREFIX)/libexec/gpclient/vpnc-script
-	$(SUDO) install -m 644 router/packaging/files/usr/share/polkit-1/actions/com.yuezk.gpgui.policy \
-		$(DESTDIR)$(PREFIX)/share/polkit-1/actions/com.yuezk.gpgui.policy
+		$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps \
+		$(DESTDIR)$(PREFIX)/lib/NetworkManager/dispatcher.d/pre-down.d
+	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gpclient $(DESTDIR)$(PREFIX)/bin/npclient
+	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gpservice $(DESTDIR)$(PREFIX)/bin/npservice
+	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gpauth $(DESTDIR)$(PREFIX)/bin/npauth
+	$(SUDO) install -m 755 $(RELEASE_GUI) $(DESTDIR)$(PREFIX)/bin/npgui
+	$(SUDO) install -m 755 $(RELEASE_ROUTER)/allowroute $(DESTDIR)$(PREFIX)/libexec/npclient/allowroute
+	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gp-vpnc-script-installer $(DESTDIR)$(PREFIX)/libexec/npclient/np-vpnc-script-installer
+	$(SUDO) install -m 755 $(RELEASE_ROUTER)/gp-hip-script-installer $(DESTDIR)$(PREFIX)/libexec/npclient/np-hip-script-installer
+	$(SUDO) install -m 755 router/packaging/files/usr/libexec/npclient/vpnc-script $(DESTDIR)$(PREFIX)/libexec/npclient/vpnc-script
+	$(SUDO) install -m 644 router/packaging/files/usr/share/polkit-1/actions/io.github.jahrulnr.nusaprotect.policy \
+		$(DESTDIR)$(PREFIX)/share/polkit-1/actions/io.github.jahrulnr.nusaprotect.policy
+	$(SUDO) install -m 755 router/packaging/files/usr/lib/NetworkManager/dispatcher.d/npclient-nm-hook \
+		$(DESTDIR)$(PREFIX)/lib/NetworkManager/dispatcher.d/npclient-nm-hook
+	$(SUDO) install -m 755 router/packaging/files/usr/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down \
+		$(DESTDIR)$(PREFIX)/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down
 	$(SUDO) install -m 644 packaging/nusaprotect.desktop $(DESTDIR)$(PREFIX)/share/applications/nusaprotect.desktop
 	$(SUDO) install -m 644 src-tauri/icons/icon.svg $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/nusaprotect.svg
 	set -e; for size in 32x32 64x64 128x128; do \

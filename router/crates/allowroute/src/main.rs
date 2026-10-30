@@ -20,8 +20,12 @@ use std::time::Duration;
 use allowroute::{decide, host_route, inspect_dns, prefix_covers};
 
 const MARK: libc::c_int = 0x6770;
-const LISTEN_PORT: u16 = 5353;
+/// Not 5353: that port is held by avahi-daemon (mDNS) on many desktops.
+const LISTEN_PORT: u16 = 15353;
 const QUERY_TIMEOUT: Duration = Duration::from_millis(1500);
+const DEFAULT_STATE_DIR: &str = "/run/npclient/allowroute";
+const RUNTIME_DIR: &str = "/run/npclient";
+const NFT_FILE: &str = "/run/npclient/allowroute.nft";
 
 static STOP: AtomicBool = AtomicBool::new(false);
 
@@ -69,7 +73,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Args {
     let mut tun = String::new();
     let mut tunnel_dns = Vec::new();
     let mut prefixes = Vec::new();
-    let mut state_dir = PathBuf::from("/run/gpclient/allowroute");
+    let mut state_dir = PathBuf::from(DEFAULT_STATE_DIR);
     let mut tokens = args.peekable();
     while let Some(token) = tokens.next() {
         match token.as_str() {
@@ -91,7 +95,9 @@ fn parse_args(args: impl Iterator<Item = String>) -> Args {
         }
     }
     if prefixes.is_empty() {
-        let from_env = env::var("GP_VPN_PREFIXES").unwrap_or_else(|_| "10.0.0.0/8".to_string());
+        let from_env = env::var("NP_VPN_PREFIXES")
+            .or_else(|_| env::var("GP_VPN_PREFIXES"))
+            .unwrap_or_else(|_| "10.0.0.0/8".to_string());
         prefixes.extend(from_env.split(|c: char| c == ',' || c.is_whitespace()).filter(|part| !part.is_empty()).map(str::to_string));
     }
     Args { tun, tunnel_dns, prefixes, state_dir }
@@ -136,13 +142,31 @@ fn run(args: Args) -> io::Result<()> {
         add_route(&cidr, &shared.tun)?;
         remember(&shared, &cidr);
     }
-    if !install_redirect() {
-        eprintln!("allowroute: DNS redirect was not installed; aggregate routing is still active");
-    }
-    let udp = UdpSocket::bind(("127.0.0.1", LISTEN_PORT))?;
+    // Bind before installing nft redirect so a port conflict cannot leave DNS redirected
+    // at a dead listener (previously common on desktops where avahi holds :5353).
+    let udp = UdpSocket::bind(("127.0.0.1", LISTEN_PORT)).map_err(|err| {
+        io::Error::new(
+            err.kind(),
+            format!("bind UDP 127.0.0.1:{LISTEN_PORT} failed: {err}"),
+        )
+    })?;
     udp.set_read_timeout(Some(Duration::from_millis(200)))?;
-    let tcp = TcpListener::bind(("127.0.0.1", LISTEN_PORT))?;
+    let tcp = TcpListener::bind(("127.0.0.1", LISTEN_PORT)).map_err(|err| {
+        io::Error::new(
+            err.kind(),
+            format!("bind TCP 127.0.0.1:{LISTEN_PORT} failed: {err}"),
+        )
+    })?;
     tcp.set_nonblocking(true)?;
+    let redirect_installed = install_redirect();
+    if !redirect_installed {
+        let msg = "allowroute: DNS redirect was not installed; aggregate routing is still active";
+        eprintln!("{msg}");
+        append_log(&args.state_dir, msg);
+    }
+    let mut redirect_guard = RedirectGuard {
+        active: redirect_installed,
+    };
     eprintln!(
         "allowroute: tun {} prefixes {} tunnel-dns {}",
         args.tun,
@@ -163,7 +187,40 @@ fn run(args: Args) -> io::Result<()> {
             Err(err) => eprintln!("allowroute: udp: {err}"),
         }
     }
-    cleanup(&args.state_dir)
+    // Normal shutdown: cleanup removes redirect; disarm so Drop is a no-op.
+    let result = cleanup(&args.state_dir);
+    redirect_guard.disarm();
+    result
+}
+
+/// Removes nft redirect if `run` unwinds or returns early after `install_redirect` succeeded.
+struct RedirectGuard {
+    active: bool,
+}
+
+impl RedirectGuard {
+    fn disarm(&mut self) {
+        self.active = false;
+    }
+}
+
+impl Drop for RedirectGuard {
+    fn drop(&mut self) {
+        if self.active {
+            remove_redirect();
+        }
+    }
+}
+
+fn append_log(state_dir: &Path, line: &str) {
+    let log_path = state_dir
+        .parent()
+        .unwrap_or(Path::new(RUNTIME_DIR))
+        .join("allowroute.log");
+    let _ = fs::create_dir_all(log_path.parent().unwrap_or(Path::new(RUNTIME_DIR)));
+    if let Ok(mut file) = fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+        let _ = writeln!(file, "{line}");
+    }
 }
 
 fn tcp_loop(listener: TcpListener, shared: Arc<Shared>, tunnel_dns: Vec<IpAddr>) {
@@ -363,17 +420,16 @@ fn install_redirect() -> bool {
 }}
 "
     );
-    let path = "/run/gpclient/allowroute.nft";
-    if fs::create_dir_all("/run/gpclient").is_err() || fs::write(path, program).is_err() {
+    if fs::create_dir_all(RUNTIME_DIR).is_err() || fs::write(NFT_FILE, program).is_err() {
         return false;
     }
     let _ = Command::new(nft_bin()).args(["delete", "table", "inet", "gpallow"]).status();
-    Command::new(nft_bin()).args(["-f", path]).status().map(|s| s.success()).unwrap_or(false)
+    Command::new(nft_bin()).args(["-f", NFT_FILE]).status().map(|s| s.success()).unwrap_or(false)
 }
 
 fn remove_redirect() {
     let _ = Command::new(nft_bin()).args(["delete", "table", "inet", "gpallow"]).status();
-    let _ = fs::remove_file("/run/gpclient/allowroute.nft");
+    let _ = fs::remove_file(NFT_FILE);
 }
 
 fn cleanup(state_dir: &Path) -> io::Result<()> {

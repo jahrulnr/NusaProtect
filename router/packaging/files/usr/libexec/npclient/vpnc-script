@@ -26,7 +26,7 @@
 #* reason                       -- why this script was called, one of: pre-init connect disconnect reconnect attempt-reconnect
 #
 # allowroute: a default route is not installed. 10.0.0.0/8 (override with
-# GP_VPN_PREFIXES) goes through the tunnel. DNS asks the system resolver
+# NP_VPN_PREFIXES) goes through the tunnel. DNS asks the system resolver
 # first and fails over to the tunnel resolver when the answer is not public.
 #* VPNGATEWAY                   -- VPN gateway address (always present)
 #* VPNPID                       -- PID of the process controlling the VPN (OpenConnect v9.0+)
@@ -1087,6 +1087,10 @@ do_connect() {
 }
 
 allowroute_bin() {
+	if [ -n "$NP_ALLOWROUTE" ] && [ -x "$NP_ALLOWROUTE" ]; then
+		echo "$NP_ALLOWROUTE"
+		return
+	fi
 	if [ -n "$GP_ALLOWROUTE" ] && [ -x "$GP_ALLOWROUTE" ]; then
 		echo "$GP_ALLOWROUTE"
 		return
@@ -1096,8 +1100,8 @@ allowroute_bin() {
 		echo "$script_dir/allowroute"
 		return
 	fi
-	if [ -x /usr/libexec/gpclient/allowroute ]; then
-		echo /usr/libexec/gpclient/allowroute
+	if [ -x /usr/libexec/npclient/allowroute ]; then
+		echo /usr/libexec/npclient/allowroute
 		return
 	fi
 	repo_bin=`CDPATH= cd "$script_dir/../../../../../target/debug" 2>/dev/null && pwd`/allowroute
@@ -1117,27 +1121,27 @@ allowroute_start() {
 	if [ -e "/proc/sys/net/ipv4/conf/$TUNDEV/rp_filter" ]; then
 		sysctl -q -w "net.ipv4.conf.$TUNDEV.rp_filter=2" || true
 	fi
-	mkdir -p /run/gpclient/allowroute
-	GP_VPN_PREFIXES="${GP_VPN_PREFIXES:-10.0.0.0/8}" \
-		"$bin" run --tun "$TUNDEV" --tunnel-dns "$INTERNAL_IP4_DNS $INTERNAL_IP6_DNS" --state-dir /run/gpclient/allowroute >>/run/gpclient/allowroute.log 2>&1 &
-	echo $! >/run/gpclient/allowroute.pid
+	mkdir -p /run/npclient/allowroute
+	NP_VPN_PREFIXES="${NP_VPN_PREFIXES:-10.0.0.0/8}" \
+		"$bin" run --tun "$TUNDEV" --tunnel-dns "$INTERNAL_IP4_DNS $INTERNAL_IP6_DNS" --state-dir /run/npclient/allowroute >>/run/npclient/allowroute.log 2>&1 &
+	echo $! >/run/npclient/allowroute.pid
 }
 
 allowroute_stop() {
 	local bin pid i
-	if [ -f /run/gpclient/allowroute.pid ]; then
-		pid=`cat /run/gpclient/allowroute.pid`
+	if [ -f /run/npclient/allowroute.pid ]; then
+		pid=`cat /run/npclient/allowroute.pid`
 		kill "$pid" 2>/dev/null || true
 		i=0
 		while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 20 ]; do
 			sleep 0.1
 			i=`expr "$i" + 1`
 		done
-		rm -f /run/gpclient/allowroute.pid
+		rm -f /run/npclient/allowroute.pid
 	fi
 	bin=`allowroute_bin`
 	if [ -n "$bin" ]; then
-		"$bin" down --state-dir /run/gpclient/allowroute >/dev/null 2>&1 || true
+		"$bin" down --state-dir /run/npclient/allowroute >/dev/null 2>&1 || true
 	fi
 }
 

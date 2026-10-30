@@ -10,7 +10,7 @@ pub struct LockFile {
 }
 
 pub fn dev_service_lock_file_path(bootstrap_socket: impl AsRef<Path>) -> PathBuf {
-  bootstrap_socket.as_ref().with_file_name("gpservice.lock")
+  bootstrap_socket.as_ref().with_file_name("npservice.lock")
 }
 
 impl LockFile {
@@ -145,15 +145,15 @@ mod tests {
   #[test]
   fn dev_service_lock_file_is_next_to_the_bootstrap_socket() {
     assert_eq!(
-      dev_service_lock_file_path("/var/run/gpservice-dev-123/dev-bootstrap.sock"),
-      PathBuf::from("/var/run/gpservice-dev-123/gpservice.lock")
+      dev_service_lock_file_path("/var/run/npservice-dev-123/dev-bootstrap.sock"),
+      PathBuf::from("/var/run/npservice-dev-123/npservice.lock")
     );
   }
 
   #[test]
   fn unlock_removes_lock_owned_by_process() {
     let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("gpservice.lock");
+    let path = temp.path().join("npservice.lock");
     let lock = LockFile::new(&path, 1234);
     lock.lock("8080").unwrap();
 
@@ -165,7 +165,7 @@ mod tests {
   #[test]
   fn unlock_preserves_lock_owned_by_another_process() {
     let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("gpservice.lock");
+    let path = temp.path().join("npservice.lock");
     let owner = LockFile::new(&path, 1234);
     let other = LockFile::new(&path, 5678);
     owner.lock("8080").unwrap();
@@ -178,7 +178,7 @@ mod tests {
   #[test]
   fn unlock_ignores_missing_or_malformed_lock() {
     let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("gpservice.lock");
+    let path = temp.path().join("npservice.lock");
     let lock = LockFile::new(&path, 1234);
 
     lock.unlock().unwrap();

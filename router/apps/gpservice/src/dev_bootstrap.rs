@@ -83,7 +83,7 @@ fn create_default_parent(path: &Path, allowed_uid: u32) -> anyhow::Result<()> {
 }
 
 fn default_socket_path(allowed_uid: u32) -> PathBuf {
-  PathBuf::from(format!("/var/run/gpservice-dev-{allowed_uid}/dev-bootstrap.sock"))
+  PathBuf::from(format!("/var/run/npservice-dev-{allowed_uid}/dev-bootstrap.sock"))
 }
 
 fn prepare_socket_path(path: &Path, allowed_uid: u32) -> anyhow::Result<PathBuf> {
@@ -180,7 +180,7 @@ mod tests {
   fn default_socket_path_is_stable() {
     assert_eq!(
       default_socket_path(1234),
-      PathBuf::from("/var/run/gpservice-dev-1234/dev-bootstrap.sock")
+      PathBuf::from("/var/run/npservice-dev-1234/dev-bootstrap.sock")
     );
   }
 

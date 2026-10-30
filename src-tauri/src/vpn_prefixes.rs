@@ -1,4 +1,4 @@
-//! Turn the settings field into a vpnc wrapper that exports `GP_VPN_PREFIXES`.
+//! Turn the settings field into a vpnc wrapper that exports `NP_VPN_PREFIXES`.
 //! OpenConnect builds the script environment itself, so a value set in the GUI
 //! process would never reach `allowroute`. The wrapper is the script OpenConnect runs.
 
@@ -14,9 +14,34 @@ const STOCK_SCRIPTS: &[&str] = &[
   "/usr/sbin/vpnc-script",
   "/usr/local/sbin/vpnc-script",
 ];
+const INSTALLED_VPNC_SCRIPT: &str = "/usr/libexec/npclient/vpnc-script";
 
 pub fn fork_vpnc_script() -> PathBuf {
-  PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../router/packaging/files/usr/libexec/gpclient/vpnc-script")
+  if let Some(path) = installed_vpnc_script() {
+    return path;
+  }
+  #[cfg(debug_assertions)]
+  {
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+      .join("../router/packaging/files/usr/libexec/npclient/vpnc-script");
+    if dev.is_file() {
+      return dev;
+    }
+  }
+  PathBuf::from(INSTALLED_VPNC_SCRIPT)
+}
+
+fn installed_vpnc_script() -> Option<PathBuf> {
+  let exe = std::env::current_exe().ok()?;
+  let exe = exe.canonicalize().ok()?;
+  let bin_dir = exe.parent()?;
+  // Installed layout: /usr/bin/npgui → /usr/libexec/npclient/vpnc-script
+  let candidate = bin_dir.parent()?.join("libexec/npclient/vpnc-script");
+  if candidate.is_file() {
+    return Some(candidate);
+  }
+  let absolute = PathBuf::from(INSTALLED_VPNC_SCRIPT);
+  absolute.is_file().then_some(absolute)
 }
 
 pub fn normalize_prefixes(raw: &str) -> Result<String, String> {
@@ -50,7 +75,7 @@ pub fn choose_script(configured: Option<&str>, fork: &str, fork_exists: bool) ->
 
 pub fn wrapper_body(prefixes: &str, inner_script: &str) -> String {
   format!(
-    "#!/bin/sh\nexport GP_VPN_PREFIXES={}\nexec {} \"$@\"\n",
+    "#!/bin/sh\nexport NP_VPN_PREFIXES={}\nexec {} \"$@\"\n",
     shell_quote(prefixes),
     shell_quote(inner_script),
   )
@@ -135,7 +160,28 @@ mod tests {
   #[test]
   fn wrapper_exports_prefixes_and_execs_the_inner_script() {
     let body = wrapper_body("10.0.0.0/8", "/opt/fork/vpnc-script");
-    assert!(body.contains("export GP_VPN_PREFIXES='10.0.0.0/8'\n"));
+    assert!(body.contains("export NP_VPN_PREFIXES='10.0.0.0/8'\n"));
     assert!(body.contains("exec '/opt/fork/vpnc-script' \"$@\"\n"));
+  }
+
+  #[test]
+  fn installed_layout_resolves_libexec_next_to_bin() {
+    let directory = std::env::temp_dir().join(format!("np-vpnc-layout-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&directory);
+    let bin = directory.join("bin");
+    let libexec = directory.join("libexec/npclient");
+    fs::create_dir_all(&bin).unwrap();
+    fs::create_dir_all(&libexec).unwrap();
+    let gui = bin.join("npgui");
+    fs::write(&gui, "").unwrap();
+    let script = libexec.join("vpnc-script");
+    fs::write(&script, "#!/bin/sh\n").unwrap();
+
+    let exe = gui.canonicalize().unwrap();
+    let bin_dir = exe.parent().unwrap();
+    let candidate = bin_dir.parent().unwrap().join("libexec/npclient/vpnc-script");
+    assert!(candidate.is_file());
+    assert_eq!(candidate.canonicalize().unwrap(), script.canonicalize().unwrap());
+    let _ = fs::remove_dir_all(&directory);
   }
 }

@@ -291,7 +291,7 @@ fn init_logger(cli: &Cli) {
     return;
   };
 
-  gpapi::logger::init(level, "com.yuezk.gpgui", "gpauth", cli.log_format);
+  gpapi::logger::init(level, "io.github.jahrulnr.nusaprotect", "npauth", cli.log_format);
 }
 
 pub async fn run() {

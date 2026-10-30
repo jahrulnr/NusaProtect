@@ -109,7 +109,7 @@ pub async fn forward_auth_callback(callback: &str) -> anyhow::Result<()> {
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 pub fn ensure_auth_callback_handler() -> anyhow::Result<()> {
   const MIME_TYPE: &str = "x-scheme-handler/globalprotectcallback";
-  const HANDLER: &str = "gpgui.desktop";
+  const HANDLER: &str = "nusaprotect.desktop";
 
   ensure_lxqt_mime_tool()?;
 
@@ -201,7 +201,8 @@ pub fn ensure_auth_callback_handler() -> anyhow::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd", test))]
 fn should_register_handler(current_handler: &str) -> bool {
-  current_handler != "gpgui.desktop"
+  // Only claim the handler when unset. Leave PAN/upstream (and our own) alone.
+  current_handler.is_empty()
 }
 
 async fn forward_auth_callback_to(callback: &str, socket_path: &Path) -> anyhow::Result<()> {
@@ -387,11 +388,12 @@ mod tests {
   }
 
   #[test]
-  fn replaces_any_other_callback_handler() {
-    assert!(!should_register_handler("gpgui.desktop"));
+  fn registers_only_when_unset() {
     assert!(should_register_handler(""));
-    assert!(should_register_handler("gpauth.desktop"));
-    assert!(should_register_handler("other-vpn.desktop"));
+    assert!(!should_register_handler("nusaprotect.desktop"));
+    assert!(!should_register_handler("gpgui.desktop"));
+    assert!(!should_register_handler("gp.desktop"));
+    assert!(!should_register_handler("other-vpn.desktop"));
   }
 
   #[test]

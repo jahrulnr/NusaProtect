@@ -128,12 +128,12 @@ async fn try_active_gui() -> anyhow::Result<()> {
 }
 
 fn get_log_file() -> anyhow::Result<PathBuf> {
-  let dirs = ProjectDirs::from("com.yuezk", "GlobalProtect-openconnect", "gpclient")
+  let dirs = ProjectDirs::from("io.github.jahrulnr", "NusaProtect", "npclient")
     .ok_or_else(|| anyhow::anyhow!("Failed to get project dirs"))?;
 
   fs::create_dir_all(dirs.data_dir())?;
 
-  Ok(dirs.data_dir().join("gpclient.log"))
+  Ok(dirs.data_dir().join("npclient.log"))
 }
 
 #[cfg(all(test, unix))]

@@ -18,18 +18,18 @@ use crate::constants::GP_VPNC_SCRIPT_INSTALLER_BINARY;
 use crate::constants::{GP_AUTH_BINARY, GP_CLIENT_BINARY, GP_GUI_BINARY, GP_GUI_HELPER_BINARY, GP_SERVICE_BINARY};
 
 pub fn gpclient() -> PathBuf {
-  resolve("GP_CLIENT_BINARY", "gpclient", GP_CLIENT_BINARY)
+  resolve(&["NP_CLIENT_BINARY", "GP_CLIENT_BINARY"], "npclient", GP_CLIENT_BINARY)
 }
 
 pub fn gpservice() -> PathBuf {
-  resolve("GP_SERVICE_BINARY", "gpservice", GP_SERVICE_BINARY)
+  resolve(&["NP_SERVICE_BINARY", "GP_SERVICE_BINARY"], "npservice", GP_SERVICE_BINARY)
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 pub fn gp_vpnc_script_installer() -> PathBuf {
   resolve(
-    "GP_VPNC_SCRIPT_INSTALLER_BINARY",
-    "gp-vpnc-script-installer",
+    &["NP_VPNC_SCRIPT_INSTALLER_BINARY", "GP_VPNC_SCRIPT_INSTALLER_BINARY"],
+    "np-vpnc-script-installer",
     GP_VPNC_SCRIPT_INSTALLER_BINARY,
   )
 }
@@ -37,18 +37,18 @@ pub fn gp_vpnc_script_installer() -> PathBuf {
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 pub fn gp_hip_script_installer() -> PathBuf {
   resolve(
-    "GP_HIP_SCRIPT_INSTALLER_BINARY",
-    "gp-hip-script-installer",
+    &["NP_HIP_SCRIPT_INSTALLER_BINARY", "GP_HIP_SCRIPT_INSTALLER_BINARY"],
+    "np-hip-script-installer",
     GP_HIP_SCRIPT_INSTALLER_BINARY,
   )
 }
 
 pub fn gpauth() -> PathBuf {
-  resolve("GP_AUTH_BINARY", "gpauth", GP_AUTH_BINARY)
+  resolve(&["NP_AUTH_BINARY", "GP_AUTH_BINARY"], "npauth", GP_AUTH_BINARY)
 }
 
 pub fn gpgui() -> PathBuf {
-  resolve("GP_GUI_BINARY", "gpgui", GP_GUI_BINARY)
+  resolve(&["NP_GUI_BINARY", "GP_GUI_BINARY"], "npgui", GP_GUI_BINARY)
 }
 
 pub fn gpgui_update_target() -> PathBuf {
@@ -70,15 +70,20 @@ pub fn gpgui_update_target() -> PathBuf {
 }
 
 pub fn gpgui_helper() -> PathBuf {
-  resolve("GP_GUI_HELPER_BINARY", "gpgui-helper", GP_GUI_HELPER_BINARY)
+  resolve(
+    &["NP_GUI_HELPER_BINARY", "GP_GUI_HELPER_BINARY"],
+    "npgui-helper",
+    GP_GUI_HELPER_BINARY,
+  )
 }
 
-fn resolve(env_key: &str, binary_name: &str, default_path: &str) -> PathBuf {
-  env::var_os(env_key)
-    .filter(|value| !value.is_empty())
-    .map(PathBuf::from)
-    .or_else(|| sibling_binary(binary_name))
-    .unwrap_or_else(|| PathBuf::from(default_path))
+fn resolve(env_keys: &[&str], binary_name: &str, default_path: &str) -> PathBuf {
+  for env_key in env_keys {
+    if let Some(value) = env::var_os(env_key).filter(|value| !value.is_empty()) {
+      return PathBuf::from(value);
+    }
+  }
+  sibling_binary(binary_name).unwrap_or_else(|| PathBuf::from(default_path))
 }
 
 fn sibling_binary(binary_name: &str) -> Option<PathBuf> {
@@ -93,8 +98,8 @@ fn sibling_binary_for_executable(executable: &Path, binary_name: &str) -> Option
   if is_file(&binary) {
     return Some(binary);
   }
-  if matches!(binary_name, "gp-vpnc-script-installer" | "gp-hip-script-installer") {
-    let binary = bin_dir.parent()?.join("libexec/gpclient").join(binary_name);
+  if matches!(binary_name, "np-vpnc-script-installer" | "np-hip-script-installer") {
+    let binary = bin_dir.parent()?.join("libexec/npclient").join(binary_name);
     if is_file(&binary) {
       return Some(binary);
     }
@@ -120,14 +125,14 @@ mod tests {
   fn script_installers_follow_the_installed_prefix() {
     let directory = tempfile::tempdir().unwrap();
     let bin = directory.path().join("bin");
-    let libexec = directory.path().join("libexec/gpclient");
+    let libexec = directory.path().join("libexec/npclient");
     std::fs::create_dir_all(&bin).unwrap();
     std::fs::create_dir_all(&libexec).unwrap();
-    std::fs::write(bin.join("gpclient"), "").unwrap();
-    for name in ["gp-vpnc-script-installer", "gp-hip-script-installer"] {
+    std::fs::write(bin.join("npclient"), "").unwrap();
+    for name in ["np-vpnc-script-installer", "np-hip-script-installer"] {
       std::fs::write(libexec.join(name), "").unwrap();
       assert_eq!(
-        sibling_binary_for_executable(&bin.join("gpclient"), name),
+        sibling_binary_for_executable(&bin.join("npclient"), name),
         Some(libexec.canonicalize().unwrap().join(name))
       );
     }
@@ -138,13 +143,13 @@ mod tests {
   fn desktop_resolves_helpers_in_the_actual_app_bundle_layout() {
     assert_eq!(
       macos::helper_path(
-        Path::new("/Applications/GP Connect.app/Contents/MacOS/gpgui"),
-        "gpclient"
+        Path::new("/Applications/GP Connect.app/Contents/MacOS/npgui"),
+        "npclient"
       ),
-      Some(PathBuf::from("/Applications/GP Connect.app/Contents/Helpers/gpclient"))
+      Some(PathBuf::from("/Applications/GP Connect.app/Contents/Helpers/npclient"))
     );
-    assert!(macos::helper_path(Path::new("/usr/local/bin/gpgui"), "gpclient").is_none());
-    assert!(macos::helper_path(Path::new("/tmp/Contents/MacOS/gpgui"), "gpclient").is_none());
+    assert!(macos::helper_path(Path::new("/usr/local/bin/npgui"), "npclient").is_none());
+    assert!(macos::helper_path(Path::new("/tmp/Contents/MacOS/npgui"), "npclient").is_none());
   }
 
   #[test]
@@ -155,20 +160,20 @@ mod tests {
     let bin = directory.path().join("bin");
     std::fs::create_dir_all(&helpers).unwrap();
     std::fs::create_dir_all(&bin).unwrap();
-    std::fs::write(helpers.join("gpclient"), "").unwrap();
-    std::fs::write(helpers.join("gpauth"), "").unwrap();
-    std::os::unix::fs::symlink(helpers.join("gpclient"), bin.join("gpclient")).unwrap();
+    std::fs::write(helpers.join("npclient"), "").unwrap();
+    std::fs::write(helpers.join("npauth"), "").unwrap();
+    std::os::unix::fs::symlink(helpers.join("npclient"), bin.join("npclient")).unwrap();
 
     assert_eq!(
-      sibling_binary_for_executable(&bin.join("gpclient"), "gpauth"),
-      Some(helpers.canonicalize().unwrap().join("gpauth"))
+      sibling_binary_for_executable(&bin.join("npclient"), "npauth"),
+      Some(helpers.canonicalize().unwrap().join("npauth"))
     );
   }
 
   #[test]
   fn default_path_is_used_when_no_sibling_exists() {
-    let path = resolve("GP_TEST_BINARY", "missing-gp-test-binary", "/usr/bin/gp-test");
+    let path = resolve(&["NP_TEST_BINARY"], "missing-np-test-binary", "/usr/bin/np-test");
 
-    assert_eq!(path, PathBuf::from("/usr/bin/gp-test"));
+    assert_eq!(path, PathBuf::from("/usr/bin/np-test"));
   }
 }

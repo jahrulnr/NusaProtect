@@ -76,7 +76,7 @@ pub(crate) async fn prepare_connection(
     check()?;
     let args = setup_request.args();
     let identity = super::prepare_identity(args, brokered_macos || non_tunnel)?;
-    let directory = brokered_macos.then(|| std::path::Path::new("/var/run/com.yuezk.gpgui"));
+    let directory = brokered_macos.then(|| std::path::Path::new("/var/run/io.github.jahrulnr.nusaprotect"));
     let identity_files = identity
       .as_ref()
       .map(|identity| identity.write_files(directory))

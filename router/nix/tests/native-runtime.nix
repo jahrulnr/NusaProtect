@@ -70,7 +70,7 @@ pkgs.testers.runNixOSTest {
         print(machine.succeed("cat /home/alice/.local/share/gpclient/gpclient.log 2>/dev/null || true"))
         print(machine.succeed("journalctl -u polkit --no-pager"))
         raise
-    service_pid = machine.succeed("cut -d: -f1 /var/run/gpservice.lock").strip()
+    service_pid = machine.succeed("cut -d: -f1 /var/run/npservice.lock").strip()
     machine.succeed("test $(stat -c %u /proc/" + service_pid + ") = 0")
     as_alice("kill -TERM $(cat /tmp/gp-client-pid)")
     machine.wait_until_succeeds("test ! -e /proc/" + service_pid, timeout=timedelta(seconds=30))
@@ -93,8 +93,8 @@ pkgs.testers.runNixOSTest {
                              "contents": script})
     vpn_installer = package + "/libexec/gpclient/gp-vpnc-script-installer"
     as_alice("printf %s " + shlex.quote(vpn_request) + " | pkexec " + vpn_installer + " install")
-    machine.succeed("test -x /var/lib/gpclient/scripts/vpnc-script")
+    machine.succeed("test -x /var/lib/npclient/scripts/vpnc-script")
     as_alice("pkexec " + vpn_installer + " remove")
-    machine.succeed("test ! -e /var/lib/gpclient/scripts/vpnc-script")
+    machine.succeed("test ! -e /var/lib/npclient/scripts/vpnc-script")
   '';
 }

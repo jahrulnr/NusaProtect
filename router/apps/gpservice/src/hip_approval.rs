@@ -13,9 +13,9 @@ use tempfile::Builder;
 use uuid::Uuid;
 
 #[cfg(target_os = "linux")]
-pub const APPROVAL_DIRECTORY: &str = "/var/lib/gpclient/hip-approvals";
+pub const APPROVAL_DIRECTORY: &str = "/var/lib/npclient/hip-approvals";
 #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
-pub const APPROVAL_DIRECTORY: &str = "/var/db/gpclient/hip-approvals";
+pub const APPROVAL_DIRECTORY: &str = "/var/db/npclient/hip-approvals";
 pub const MAX_SCRIPT_SIZE: usize = common::constants::MAX_HIP_SCRIPT_SIZE;
 const MAX_METADATA_SIZE: u64 = 8 * 1024;
 const METADATA_VERSION: u8 = 1;

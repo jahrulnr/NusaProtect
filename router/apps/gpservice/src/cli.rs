@@ -283,7 +283,7 @@ impl Cli {
       logger::init_with_logger(
         level,
         RedactingMacosLogger {
-          logger: logger::MacosLogger::new("com.yuezk.gpgui", "gpservice"),
+          logger: logger::MacosLogger::new("io.github.jahrulnr.nusaprotect", "npservice"),
           redaction: Arc::clone(&redaction),
         },
       );
@@ -355,7 +355,7 @@ mod signals {
   use crate::vpn_task::LifecycleHandle;
   use crate::ws_server::WsServerContext;
 
-  const DISCONNECTED_PID_FILE: &str = "/tmp/gpservice_disconnected.pid";
+  const DISCONNECTED_PID_FILE: &str = "/tmp/npservice_disconnected.pid";
 
   pub async fn handle_signals(lifecycle: LifecycleHandle, ws_ctx: Arc<WsServerContext>) {
     use gpapi::service::event::WsEvent;

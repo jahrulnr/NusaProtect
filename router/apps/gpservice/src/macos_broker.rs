@@ -13,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{credential_lease, session_registry::SessionRegistry};
 
-pub(crate) const CREDENTIAL_SOCKET: &str = "/var/run/com.yuezk.gpgui/credential.sock";
+pub(crate) const CREDENTIAL_SOCKET: &str = "/var/run/io.github.jahrulnr.nusaprotect/credential.sock";
 
 pub(crate) struct CredentialServer {
   registry: Arc<SessionRegistry>,

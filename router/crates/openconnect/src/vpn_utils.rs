@@ -3,9 +3,9 @@ use std::{io, path::Path};
 use is_executable::IsExecutable;
 
 const VPNC_SCRIPT_LOCATIONS: &[&str] = &[
-  "/usr/local/libexec/gpclient/vpnc-script",
-  "/usr/libexec/gpclient/vpnc-script",
-  "/usr/lib/gpclient/vpnc-script",
+  "/usr/local/libexec/npclient/vpnc-script",
+  "/usr/libexec/npclient/vpnc-script",
+  "/usr/lib/npclient/vpnc-script",
   "/usr/local/share/vpnc-scripts/vpnc-script",
   "/usr/local/sbin/vpnc-script",
   "/usr/share/vpnc-scripts/vpnc-script",
@@ -48,7 +48,7 @@ fn installed_vpnc_script(executable: &Path) -> Option<String> {
   if bin.file_name()? != "bin" {
     return None;
   }
-  configured_script(&bin.parent()?.join("libexec/gpclient/vpnc-script"))
+  configured_script(&bin.parent()?.join("libexec/npclient/vpnc-script"))
 }
 
 fn configured_script(path: &Path) -> Option<String> {
@@ -80,16 +80,16 @@ mod tests {
   fn installed_script_follows_the_executable_prefix_through_symlinks() {
     let dir = tempfile::tempdir().unwrap();
     let bin = dir.path().join("prefix/bin");
-    let libexec = dir.path().join("prefix/libexec/gpclient");
+    let libexec = dir.path().join("prefix/libexec/npclient");
     std::fs::create_dir_all(&bin).unwrap();
     std::fs::create_dir_all(&libexec).unwrap();
-    std::fs::write(bin.join("gpclient"), "").unwrap();
+    std::fs::write(bin.join("npclient"), "").unwrap();
     let script = libexec.join("vpnc-script");
     std::fs::write(&script, "#!/bin/sh\n").unwrap();
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let link = dir.path().join("gpclient-link");
-    std::os::unix::fs::symlink(bin.join("gpclient"), &link).unwrap();
+    let link = dir.path().join("npclient-link");
+    std::os::unix::fs::symlink(bin.join("npclient"), &link).unwrap();
     assert_eq!(
       installed_vpnc_script(&link),
       Some(script.canonicalize().unwrap().to_str().unwrap().to_owned())

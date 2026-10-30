@@ -23,7 +23,7 @@ mod tests {
 
   #[test]
   fn installed_script_takes_precedence_over_legacy() {
-    let installed = Path::new("/var/lib/gpclient/scripts/vpnc-script");
+    let installed = Path::new("/var/lib/npclient/scripts/vpnc-script");
     assert_eq!(
       select(Some(installed), Some("legacy-command")),
       ScriptSource::Installed(installed)

@@ -3,4 +3,4 @@
 set -e
 
 # Disconnect the VPN connection before the network goes down
-/usr/bin/gpclient disconnect --wait 3
+/usr/bin/npclient disconnect --wait 3

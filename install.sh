@@ -5,8 +5,8 @@
 # install it with apt. Other distributions should use `make install`, which
 # builds this tree and does not download anything.
 #
-# CI publishes one tag, v<version>, from src-tauri/Cargo.toml. A new tag is
-# created only when that version is not already published. A private
+# CI publishes one tag, v<VERSION>, from the top-level VERSION file. A new tag
+# is created only when that package version is not already published. A private
 # repository needs `gh auth login`.
 
 set -euo pipefail

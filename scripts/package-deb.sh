@@ -33,7 +33,7 @@ pkg="$stage/nusaprotect"
 install -d \
   "$pkg/DEBIAN" \
   "$pkg/usr/bin" \
-  "$pkg/usr/libexec/gpclient" \
+  "$pkg/usr/libexec/npclient" \
   "$pkg/usr/share/applications" \
   "$pkg/usr/share/polkit-1/actions" \
   "$pkg/usr/share/icons/hicolor/scalable/apps" \
@@ -41,18 +41,23 @@ install -d \
   "$pkg/usr/share/icons/hicolor/64x64/apps" \
   "$pkg/usr/share/icons/hicolor/128x128/apps" \
   "$pkg/usr/share/icons/hicolor/256x256/apps" \
-  "$pkg/usr/share/icons/hicolor/512x512/apps"
+  "$pkg/usr/share/icons/hicolor/512x512/apps" \
+  "$pkg/usr/lib/NetworkManager/dispatcher.d/pre-down.d"
 
-install -m 755 "$backend_dir/bin/gpclient" "$pkg/usr/bin/gpclient"
-install -m 755 "$backend_dir/bin/gpservice" "$pkg/usr/bin/gpservice"
-install -m 755 "$backend_dir/bin/gpauth" "$pkg/usr/bin/gpauth"
-install -m 755 "$gui" "$pkg/usr/bin/gpgui"
-install -m 755 "$backend_dir/libexec/gpclient/allowroute" "$pkg/usr/libexec/gpclient/allowroute"
-install -m 755 "$backend_dir/libexec/gpclient/vpnc-script" "$pkg/usr/libexec/gpclient/vpnc-script"
-install -m 755 "$backend_dir/libexec/gpclient/gp-vpnc-script-installer" "$pkg/usr/libexec/gpclient/gp-vpnc-script-installer"
-install -m 755 "$backend_dir/libexec/gpclient/gp-hip-script-installer" "$pkg/usr/libexec/gpclient/gp-hip-script-installer"
-install -m 644 "$root/router/packaging/files/usr/share/polkit-1/actions/com.yuezk.gpgui.policy" \
-  "$pkg/usr/share/polkit-1/actions/com.yuezk.gpgui.policy"
+install -m 755 "$backend_dir/bin/npclient" "$pkg/usr/bin/npclient"
+install -m 755 "$backend_dir/bin/npservice" "$pkg/usr/bin/npservice"
+install -m 755 "$backend_dir/bin/npauth" "$pkg/usr/bin/npauth"
+install -m 755 "$gui" "$pkg/usr/bin/npgui"
+install -m 755 "$backend_dir/libexec/npclient/allowroute" "$pkg/usr/libexec/npclient/allowroute"
+install -m 755 "$backend_dir/libexec/npclient/vpnc-script" "$pkg/usr/libexec/npclient/vpnc-script"
+install -m 755 "$backend_dir/libexec/npclient/np-vpnc-script-installer" "$pkg/usr/libexec/npclient/np-vpnc-script-installer"
+install -m 755 "$backend_dir/libexec/npclient/np-hip-script-installer" "$pkg/usr/libexec/npclient/np-hip-script-installer"
+install -m 644 "$root/router/packaging/files/usr/share/polkit-1/actions/io.github.jahrulnr.nusaprotect.policy" \
+  "$pkg/usr/share/polkit-1/actions/io.github.jahrulnr.nusaprotect.policy"
+install -m 755 "$root/router/packaging/files/usr/lib/NetworkManager/dispatcher.d/npclient-nm-hook" \
+  "$pkg/usr/lib/NetworkManager/dispatcher.d/npclient-nm-hook"
+install -m 755 "$root/router/packaging/files/usr/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down" \
+  "$pkg/usr/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down"
 install -m 644 "$root/packaging/nusaprotect.desktop" "$pkg/usr/share/applications/nusaprotect.desktop"
 install -m 644 "$root/src-tauri/icons/icon.svg" "$pkg/usr/share/icons/hicolor/scalable/apps/nusaprotect.svg"
 install -m 644 "$root/src-tauri/icons/32x32.png" "$pkg/usr/share/icons/hicolor/32x32/apps/nusaprotect.png"
@@ -68,10 +73,12 @@ Section: net
 Priority: optional
 Architecture: $arch
 Maintainer: NusaProtect <https://github.com/jahrulnr/NusaProtect>
-Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3, ca-certificates, xdg-utils, libayatana-appindicator3-1
+Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3, ca-certificates, xdg-utils, libayatana-appindicator3-1, policykit-1, nftables, libxml2, libgnutls30, libnettle8, libhogweed6, libp11-kit0, libgmp10, liblz4-1
 Description: NusaProtect GlobalProtect client
  GUI and tunnel programs in one package. Public addresses stay on the normal
  network. 10.0.0.0/8 and other non-public answers go through the tunnel.
+ Binaries use the np* prefix so this package can sit beside upstream
+ globalprotect-openconnect.
 EOF
 
 cat > "$pkg/DEBIAN/postinst" <<'EOF'

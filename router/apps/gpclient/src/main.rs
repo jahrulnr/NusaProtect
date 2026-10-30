@@ -8,7 +8,7 @@ mod hip;
 mod launch_gui;
 mod session;
 
-pub(crate) const GP_CLIENT_LOCK_FILE: &str = "/var/run/gpclient.lock";
+pub(crate) const GP_CLIENT_LOCK_FILE: &str = "/var/run/npclient.lock";
 
 #[tokio::main]
 async fn main() {

@@ -25,11 +25,13 @@ jobs:
           ver=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
           echo "version=$ver" >> "$GITHUB_OUTPUT"
 
-      - name: Bump Cargo.toml
+      - name: Bump Cargo.toml versions
         if: steps.upstream.outputs.version != steps.current.outputs.version
         run: |
-          sed -i 's/^version = ".*"/version = "${{ steps.upstream.outputs.version }}"/' \
-            src-tauri/Cargo.toml
+          version='${{ steps.upstream.outputs.version }}'
+          sed -i "s/^version = \".*\"/version = \"$version\"/" src-tauri/Cargo.toml
+          # Keep GUI and backend workspace versions identical (GuiLauncher check_version).
+          sed -i "/^\[workspace.package\]/,/^\[/{s/^version = \".*\"/version = \"$version\"/;}" router/Cargo.toml
 
       - name: Open PR
         if: steps.upstream.outputs.version != steps.current.outputs.version
@@ -40,6 +42,6 @@ jobs:
           body: |
             Upstream GlobalProtect-openconnect released **v${{ steps.upstream.outputs.version }}**.
 
-            Bumping `src-tauri/Cargo.toml` to match so the upstream installer does not auto-replace the NusaProtect binary. This is the GlobalProtect client version, not the package version in `VERSION`.
+            Bumping `src-tauri/Cargo.toml` and `router/Cargo.toml` `[workspace.package] version` together so GuiLauncher does not see a version mismatch. This is the GlobalProtect client version, not the package version in `VERSION`.
           branch: "auto/version-sync-${{ steps.upstream.outputs.version }}"
           delete-branch: true
