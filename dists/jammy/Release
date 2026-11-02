@@ -4,7 +4,7 @@ Suite: jammy
 Codename: jammy
 Architectures: amd64
 Components: main
-Date: Mon, 02 Nov 2026 03:42:27 +0000
+Date: Mon, 02 Nov 2026 08:21:47 +0000
 SHA256:
- c51e567d3f4174521b7dbc98ead6c65dba19616d48db2759ba8f87c814b9b2ab     1036 main/binary-amd64/Packages
- c6b80ea7d72580de5c958a67078c04706cff35e3e2395bb05086e95e36fc6366      654 main/binary-amd64/Packages.gz
+ b1fc62fe64e74d55f028de81533cf29cd7b7c6c0f52999918e98ef541f9d090e     1036 main/binary-amd64/Packages
+ 532ce5dc372a7466e1f3d959b56d20ee70b781abed0bd52e68c2456d7d3d7295      655 main/binary-amd64/Packages.gz

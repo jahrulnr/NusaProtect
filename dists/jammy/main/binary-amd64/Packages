@@ -1,13 +1,13 @@
 Package: nusaprotect
-Version: 0.1.1
+Version: 0.1.2
 Architecture: amd64
 Maintainer: NusaProtect <https://github.com/jahrulnr/NusaProtect>
 Depends: libgtk-3-0 | libgtk-3-0t64, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3 | libssl3t64, ca-certificates, xdg-utils, libayatana-appindicator3-1, policykit-1 | polkitd, pkexec | policykit-1, nftables, libxml2, libgnutls30 | libgnutls30t64, libnettle8 | libnettle8t64, libhogweed6 | libhogweed6t64, libp11-kit0, libgmp10, liblz4-1
-Filename: pool-jammy/main/n/nusaprotect/nusaprotect_0.1.1_ubuntu22_amd64.deb
-Size: 10823202
-MD5sum: 35e1e9e29cf15236400c364d75332b12
-SHA1: 5ba7f1c498fa94cd2b5f41b44b2fe558a940322a
-SHA256: 7c5e26712148c68c14d7a04b845eeaf4e1e59b3d195f2152023dfa5efac1f07a
+Filename: pool-jammy/main/n/nusaprotect/nusaprotect_0.1.2_ubuntu22_amd64.deb
+Size: 10839472
+MD5sum: ab20645f23a8f32641bcb8283b4372be
+SHA1: 233d9f0eddf0a93a8537b0b499b590aeb0bff76b
+SHA256: 24bf79d5b34b29e82e8d05d1f39bbd5504ed12d3593a9150df218c48c72a221e
 Section: net
 Priority: optional
 Description: NusaProtect GlobalProtect client
