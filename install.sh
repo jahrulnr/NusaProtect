@@ -33,6 +33,23 @@ deb_arch() {
   esac
 }
 
+# glibc 2.39 is Ubuntu 24.04. The ubuntu-latest deb needs at least that.
+# Older glibc, including Ubuntu 22.04 (2.35), gets the Ubuntu 22.04 build,
+# which also runs on newer glibc.
+glibc_version() {
+  ldd --version 2>&1 | awk 'NR==1 { print $NF }'
+}
+
+apt_suite() {
+  local ver
+  ver="$(glibc_version || true)"
+  if [[ -n "$ver" ]] && printf '%s\n%s\n' "2.39" "$ver" | sort -V -C; then
+    printf 'stable\n'
+  else
+    printf 'jammy\n'
+  fi
+}
+
 resolve_release_tag() {
   local tag
   if [[ -n "$NUSAPROTECT_RELEASE" ]]; then
@@ -59,13 +76,15 @@ for rel in rels:
 }
 
 apt_repo_ready() {
-  curl -fsI --retry 2 "$NUSAPROTECT_APT_URL/dists/stable/InRelease" >/dev/null 2>&1
+  curl -fsI --retry 2 "$NUSAPROTECT_APT_URL/dists/$(apt_suite)/InRelease" >/dev/null 2>&1
 }
 
 configure_apt_source() {
+  local suite
+  suite="$(apt_suite)"
   sudo install -d /usr/share/keyrings
   curl -fsSL "$NUSAPROTECT_APT_URL/nusaprotect.gpg" | sudo tee /usr/share/keyrings/nusaprotect.gpg >/dev/null
-  printf 'deb [signed-by=/usr/share/keyrings/nusaprotect.gpg] %s stable main\n' "$NUSAPROTECT_APT_URL" \
+  printf 'deb [signed-by=/usr/share/keyrings/nusaprotect.gpg] %s %s main\n' "$NUSAPROTECT_APT_URL" "$suite" \
     | sudo tee /etc/apt/sources.list.d/nusaprotect.list >/dev/null
 }
 
@@ -76,7 +95,11 @@ install_deb() {
   fi
   arch="$(deb_arch)"
   tag="$(resolve_release_tag)"
-  asset="nusaprotect_${tag#v}_${arch}.deb"
+  if [[ "$(apt_suite)" == "jammy" ]]; then
+    asset="nusaprotect_${tag#v}_ubuntu22_${arch}.deb"
+  else
+    asset="nusaprotect_${tag#v}_${arch}.deb"
+  fi
   url="https://github.com/${NUSAPROTECT_REPO}/releases/download/${tag}/${asset}"
   tmp="$(mktemp -d)"
 
@@ -109,7 +132,7 @@ main() {
     info "Configuring the apt source at ${NUSAPROTECT_APT_URL}..."
     configure_apt_source
     sudo apt-get update -q
-    sudo apt-get install -y nusaprotect
+    sudo apt-get install -y --reinstall nusaprotect
     info "Sumber apt terpasang. Versi berikutnya masuk lewat: sudo apt update && sudo apt upgrade"
   else
     install_deb

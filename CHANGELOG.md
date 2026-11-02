@@ -11,6 +11,12 @@ version and is not this package version.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-02
+
+### Changed
+
+- Publish two amd64 packages. `nusaprotect_<version>_amd64.deb` is built on the latest GitHub Ubuntu runner and served from the apt suite `stable`. `nusaprotect_<version>_ubuntu22_amd64.deb` is built on Ubuntu 22.04 and served from the suite `jammy`. `install.sh` selects the suite from the system glibc.
+
 ## [0.1.0] - 2026-10-30
 
 ### Added

@@ -55,7 +55,7 @@ Run the install script as a regular user (it uses `sudo` internally where root i
 curl -fsSL https://raw.githubusercontent.com/jahrulnr/NusaProtect/master/install.sh | bash
 ```
 
-The script adds the signed NusaProtect apt repository at `https://jahrulnr.github.io/NusaProtect` and installs the `nusaprotect` package, which contains the GUI and the VPN backend. If that repository is not published yet, it installs `nusaprotect_<version>_amd64.deb` from the newest `v*` release on [github.com/jahrulnr/NusaProtect](https://github.com/jahrulnr/NusaProtect) instead. In that case it does not add the apt source, so run the same command again after the repository is published.
+The script adds the signed NusaProtect apt repository at `https://jahrulnr.github.io/NusaProtect` and installs the `nusaprotect` package, which contains the GUI and the VPN backend. It picks the suite from the system glibc. glibc 2.39 or newer (Ubuntu 24.04 and current Debian) uses `stable`, built on the newest GitHub Ubuntu runner. Older glibc, including Ubuntu 22.04, uses `jammy`, built on Ubuntu 22.04. If that suite is not published yet, it installs the matching file from the newest `v*` release on [github.com/jahrulnr/NusaProtect](https://github.com/jahrulnr/NusaProtect): `nusaprotect_<version>_amd64.deb` or `nusaprotect_<version>_ubuntu22_amd64.deb`. In that case it does not add the apt source, so run the same command again after the repository is published.
 
 Once the apt source is configured, later versions install with `sudo apt update && sudo apt upgrade`. To pin the GitHub release used by the fallback, set `NUSAPROTECT_RELEASE=v<version>` before `bash`:
 
@@ -126,7 +126,7 @@ You also need Rust (`router/rust-toolchain.toml` pins 1.91), pnpm (the version i
 
 - `VERSION` is the package version. The `version` in `src-tauri/Cargo.toml` tracks the upstream GlobalProtect client version and is not the package version.
 - Each version needs a `## [<version>]` section in [CHANGELOG.md](CHANGELOG.md). `make check-version` checks it.
-- A push to `main` builds the backend and GUI. If tag `v<VERSION>` does not exist yet, CI publishes the `.deb`, the apt repository, and a GitHub release. To publish again, bump `VERSION` and add its changelog section.
+- A push to `main` builds the backend and GUI twice: once on `ubuntu-latest` and once on `ubuntu-22.04`. If tag `v<VERSION>` does not exist yet, CI publishes both `.deb` files, the apt suites `stable` and `jammy`, and a GitHub release. To publish again, bump `VERSION` and add its changelog section.
 
 ## Requirements
 
