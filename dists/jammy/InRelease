@@ -1,0 +1,29 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: NusaProtect
+Label: NusaProtect
+Suite: jammy
+Codename: jammy
+Architectures: amd64
+Components: main
+Date: Mon, 02 Nov 2026 03:42:27 +0000
+SHA256:
+ c51e567d3f4174521b7dbc98ead6c65dba19616d48db2759ba8f87c814b9b2ab     1036 main/binary-amd64/Packages
+ c6b80ea7d72580de5c958a67078c04706cff35e3e2395bb05086e95e36fc6366      654 main/binary-amd64/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEvZElZu//8Wk7ekX/6fW1eKu6vW0FAmroBqMACgkQ6fW1eKu6
+vW3p3A//QMWoXOrFthHbcGhVezn8FEivDXPOpAvM+wl4UfEJsKcDEqQazq9RLvCZ
+vxnKlSvYNi2gnDmTWvi9XcECM2YnYbGBsTaKw5BK/n4vEA/NqhJUBQLzDadfHkWQ
+iqCTmJTUrx+zA+E8U9NP8VLhfYA7Bk6d4Vz5v4S7zvyJdoSWN/9Hwn5nCb+KGkeJ
+1EKj/IT3raBHZkXwc6vEqY8kuS1D+xiBNm12VG07bFMV7IjAnyTy0WawAxSF9tJ8
+PcK2dCJMNCaFGEZMTiVayTGkwz72UlQNG+o2kCuKBzZMuCQDpcPQq06851vJoxNt
+gqXsL2QH5wv6WBMbYQ4BHaHC5Y4VnhjTjnaFbKqCP8F6Iv/W1xkW2kcUF0vW0Ndp
+IkXqBoj9+tNtBD/+oQs8xuRML/le2Tu8tGqGnhowVmQrUWMLEsfK8/OvpQKfo+wK
+EXVnUs/kgWblM6MWQbUHVUy7TVI6WrKBvcqvzRf0CA2pc6Tpy8HeMSKnPcqoOLJ5
+fqWKfTZA9niLQuFMro1hXpSb+QUJQqeloTk40X0DRRvo8FRq/EydO0IsZmNUE9Iw
+lfCPJQe6Z27LJ15+25/I+taGExqa4DbJNMkH56la9PAn0Iz4BA5eL+z3NiuNrkZL
+9QiEqRvXdZExt7WNFGgsAse7t+OpLVNno4Fe5nrwjEwBf2Ow/iM=
+=1iYn
+-----END PGP SIGNATURE-----

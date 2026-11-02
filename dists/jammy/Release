@@ -1,0 +1,10 @@
+Origin: NusaProtect
+Label: NusaProtect
+Suite: jammy
+Codename: jammy
+Architectures: amd64
+Components: main
+Date: Mon, 02 Nov 2026 03:42:27 +0000
+SHA256:
+ c51e567d3f4174521b7dbc98ead6c65dba19616d48db2759ba8f87c814b9b2ab     1036 main/binary-amd64/Packages
+ c6b80ea7d72580de5c958a67078c04706cff35e3e2395bb05086e95e36fc6366      654 main/binary-amd64/Packages.gz

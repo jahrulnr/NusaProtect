@@ -4,10 +4,10 @@ Architecture: amd64
 Maintainer: NusaProtect <https://github.com/jahrulnr/NusaProtect>
 Depends: libgtk-3-0 | libgtk-3-0t64, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3 | libssl3t64, ca-certificates, xdg-utils, libayatana-appindicator3-1, policykit-1 | polkitd, pkexec | policykit-1, nftables, libxml2, libgnutls30 | libgnutls30t64, libnettle8 | libnettle8t64, libhogweed6 | libhogweed6t64, libp11-kit0, libgmp10, liblz4-1
 Filename: pool/main/n/nusaprotect/nusaprotect_0.1.1_amd64.deb
-Size: 10820080
-MD5sum: f43d89c55ffa7ae0e2efdff77f45a48a
-SHA1: b4834956499fd0c81f77cad3ced6822f787fca7d
-SHA256: 854b11655511b5b476cf8891fc046e293056dea0476233310c7ba1e9ed2a9b06
+Size: 10830158
+MD5sum: aad9fe883b62267fc68f937fa65e178c
+SHA1: 69a2d654698baa2fb28bd675271245ab61fbdb60
+SHA256: ac59630e1b868203fc822e34a1af37a69d9eb677b3d13e82f71097792eaa5558
 Section: net
 Priority: optional
 Description: NusaProtect GlobalProtect client
