@@ -120,10 +120,75 @@ pub async fn get_prelogin(
   connect::get_prelogin(&portal, cert, profile).await.map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub async fn clear_credentials(state: State<'_, AppState>) -> Result<(), String> {
-  *state.clean_next_auth.lock().await = true;
+/// Send a ConnectRequest to gpservice and, once it is on the wire, keep the
+/// auth artifacts for the next reconnect.
+async fn send_connect(
+  state: &State<'_, AppState>,
+  req: gpapi::service::request::ConnectRequest,
+  cached: CachedAuth,
+  note: &str,
+) -> Result<(), String> {
+  let client = state.client.lock().await;
+  let Some(ref client) = *client else {
+    return Err("Not connected to gpservice".to_string());
+  };
+  client
+    .send(WsRequest::Connect(Box::new(req)))
+    .await
+    .map_err(|e| e.to_string())?;
+
+  *state.cached_auth.lock().await = Some(cached);
+  info!("ConnectRequest sent to gpservice{note}");
   Ok(())
+}
+
+/// Reuse the cached portal session for a manual connect — the tunnel drops on
+/// disconnect but the auth cookie often stays valid, so a fresh SAML/password
+/// flow would ask the user to log in again for nothing. Returns true once the
+/// request is sent; on any session failure the caller should run the full
+/// auth flow instead — unless the user cancelled, which propagates.
+async fn try_cached_connect(
+  portal: &str,
+  gateway: Option<&str>,
+  username: Option<&str>,
+  app: &AppHandle,
+  state: &State<'_, AppState>,
+) -> Result<bool, String> {
+  let cached = state.cached_auth.lock().await.clone();
+  let Some(cached) = cached else { return Ok(false) };
+  if !cached.portal.eq_ignore_ascii_case(portal) {
+    return Ok(false);
+  }
+  // A different typed username must not silently reuse the previous account.
+  if let Some(username) = username {
+    if !cached.cred.username().eq_ignore_ascii_case(username) {
+      return Ok(false);
+    }
+  }
+
+  info!("Reusing cached portal session for {}", portal);
+  let cancellation = tokio_util::sync::CancellationToken::new();
+  *state.connect_cancel.lock().await = Some(cancellation.clone());
+  let ctx = connect::FlowCtx {
+    app,
+    pick: GatewayPick::new(Arc::clone(&state.pending_gateway)),
+    cancellation: &cancellation,
+  };
+  let result = connect::connect_with_credential(&cached, gateway, ctx).await;
+  *state.connect_cancel.lock().await = None;
+  let (req, fresh) = match result {
+    Ok(pair) => pair,
+    Err(e) => {
+      if cancellation.is_cancelled() {
+        return Err(e.to_string());
+      }
+      info!("Cached session was not accepted ({}), running full authentication", e);
+      return Ok(false);
+    }
+  };
+
+  send_connect(state, req, fresh, " (reused session)").await?;
+  Ok(true)
 }
 
 #[tauri::command]
@@ -145,6 +210,7 @@ pub async fn connect_saml(
   user_agent: Option<String>,
   vpnc_script: Option<String>,
   vpn_prefixes: Option<String>,
+  dns_route_ttl: Option<String>,
   reconnect_timeout: Option<u32>,
   mtu: Option<u32>,
   submit_hip_report: Option<bool>,
@@ -157,6 +223,14 @@ pub async fn connect_saml(
   if state.client.lock().await.is_none() {
     return Err("Not connected to gpservice".to_string());
   }
+
+  // Write the vpnc wrapper before any connect path so a changed prefix/TTL
+  // also applies when a cached session skips the rest of this function.
+  let vpnc_script = crate::vpn_prefixes::prepare(
+    vpnc_script.as_deref(),
+    vpn_prefixes.as_deref(),
+    dns_route_ttl.as_deref(),
+  )?;
 
   let auth_executable = state.auth_executable.lock().await.clone();
 
@@ -173,8 +247,9 @@ pub async fn connect_saml(
 
   let default_browser = use_external_browser.unwrap_or(false);
 
-  // External-browser mode → route through the isolated-window wrapper so
-  // gpauth never kills the user's main browser
+  // External-browser mode → route through the wrapper so the auth flow gets
+  // a dedicated window on its own persistent profile, separate from the
+  // everyday browser (NP_AUTH_BROWSER_SHARED=1 opts into the main profile)
   let browser = if default_browser && browser.is_none() {
     Some(format!("{}/.local/bin/gp-auth-browser", std::env::var("HOME").unwrap_or_default()))
   } else {
@@ -192,6 +267,13 @@ pub async fn connect_saml(
   });
   info!("Starting SAML connect to portal: {}, clean={}, default_browser={}", portal, clean, default_browser);
 
+  // A still-valid cached session skips the SAML dance entirely (e.g. manual
+  // disconnect → connect). Skipped when the user asked for a clean login or
+  // disabled cookie reuse.
+  if !clean && try_cached_connect(&portal, gateway.as_deref(), None, &app, &state).await? {
+    return Ok(());
+  }
+
   let cert = CertConfig {
     certificate: certificate.filter(|s| !s.is_empty()),
     sslkey: sslkey.filter(|s| !s.is_empty()),
@@ -203,7 +285,6 @@ pub async fn connect_saml(
     client_version,
     user_agent,
   };
-  let vpnc_script = crate::vpn_prefixes::prepare(vpnc_script.as_deref(), vpn_prefixes.as_deref())?;
   let tunnel = TunnelConfig {
     disable_ipv6: disable_ipv6.unwrap_or(false),
     no_dtls: no_dtls.unwrap_or(false),
@@ -232,21 +313,7 @@ pub async fn connect_saml(
   *state.connect_cancel.lock().await = None;
   let (req, cached) = result.map_err(|e| e.to_string())?;
 
-  let client = state.client.lock().await;
-  let Some(ref client) = *client else {
-    return Err("Not connected to gpservice".to_string());
-  };
-
-  client
-    .send(WsRequest::Connect(Box::new(req)))
-    .await
-    .map_err(|e| e.to_string())?;
-
-  // Only cache the session once the connect request was actually accepted
-  *state.cached_auth.lock().await = Some(cached);
-
-  info!("ConnectRequest sent to gpservice");
-  Ok(())
+  send_connect(&state, req, cached, "").await
 }
 
 #[tauri::command]
@@ -267,6 +334,7 @@ pub async fn connect_password(
   user_agent: Option<String>,
   vpnc_script: Option<String>,
   vpn_prefixes: Option<String>,
+  dns_route_ttl: Option<String>,
   reconnect_timeout: Option<u32>,
   mtu: Option<u32>,
   submit_hip_report: Option<bool>,
@@ -281,8 +349,24 @@ pub async fn connect_password(
     return Err("Not connected to gpservice".to_string());
   }
 
-  // Wipe this copy of the password when the command returns
+  // Write the vpnc wrapper before any connect path so a changed prefix/TTL
+  // also applies when a cached session skips the rest of this function.
+  let vpnc_script = crate::vpn_prefixes::prepare(
+    vpnc_script.as_deref(),
+    vpn_prefixes.as_deref(),
+    dns_route_ttl.as_deref(),
+  )?;
+
+  // Wipe this copy of the password when the command returns — also on the
+  // cached path below which never reaches the portal login.
   let password = zeroize::Zeroizing::new(password);
+
+  // A still-valid cached session skips the portal password login too, but
+  // only for the same account the session belongs to.
+  if try_cached_connect(&portal, gateway.as_deref(), Some(&username), &app, &state).await? {
+    return Ok(());
+  }
+
 
   let cert = CertConfig {
     certificate: certificate.filter(|s| !s.is_empty()),
@@ -295,7 +379,6 @@ pub async fn connect_password(
     client_version,
     user_agent,
   };
-  let vpnc_script = crate::vpn_prefixes::prepare(vpnc_script.as_deref(), vpn_prefixes.as_deref())?;
   let tunnel = TunnelConfig {
     disable_ipv6: disable_ipv6.unwrap_or(false),
     no_dtls: no_dtls.unwrap_or(false),
@@ -317,21 +400,7 @@ pub async fn connect_password(
   *state.connect_cancel.lock().await = None;
   let (req, cached) = result.map_err(|e| e.to_string())?;
 
-  let client = state.client.lock().await;
-  let Some(ref client) = *client else {
-    return Err("Not connected to gpservice".to_string());
-  };
-
-  client
-    .send(WsRequest::Connect(Box::new(req)))
-    .await
-    .map_err(|e| e.to_string())?;
-
-  // Only cache the session once the connect request was actually accepted
-  *state.cached_auth.lock().await = Some(cached);
-
-  info!("ConnectRequest sent to gpservice");
-  Ok(())
+  send_connect(&state, req, cached, "").await
 }
 
 #[tauri::command]
@@ -439,9 +508,9 @@ pub async fn switch_gateway(gateway: String, app: AppHandle, state: State<'_, Ap
     pick: GatewayPick::new(Arc::clone(&state.pending_gateway)),
     cancellation: &cancellation,
   };
-  let result = connect::connect_with_credential(&cached, &gateway, ctx).await;
+  let result = connect::connect_with_credential(&cached, Some(&gateway), ctx).await;
   *state.connect_cancel.lock().await = None;
-  let req = result.map_err(|e| e.to_string())?;
+  let (req, fresh) = result.map_err(|e| e.to_string())?;
 
   use gpapi::service::request::DisconnectRequest;
   info!("Switching gateway to {}: disconnecting current tunnel", gateway);
@@ -474,17 +543,7 @@ pub async fn switch_gateway(gateway: String, app: AppHandle, state: State<'_, Ap
   };
   let _ = tokio::time::timeout(Duration::from_secs(10), wait_disconnected).await;
 
-  let client = state.client.lock().await;
-  let Some(ref client) = *client else {
-    return Err("Not connected to gpservice".to_string());
-  };
-  client
-    .send(WsRequest::Connect(Box::new(req)))
-    .await
-    .map_err(|e| e.to_string())?;
-
-  info!("Gateway switch request sent");
-  Ok(())
+  send_connect(&state, req, fresh, " (gateway switch)").await
 }
 
 #[tauri::command]
@@ -525,8 +584,7 @@ pub fn minimize_window(window: tauri::WebviewWindow) -> Result<(), String> {
 
 #[tauri::command]
 pub fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
-  window.show().map_err(|e| e.to_string())?;
-  window.set_focus().map_err(|e| e.to_string())
+  crate::app::reveal_window(&window)
 }
 
 #[tauri::command]
@@ -554,6 +612,52 @@ pub async fn disconnect(state: State<'_, AppState>) -> Result<(), String> {
     .send(WsRequest::Disconnect(DisconnectRequest))
     .await
     .map_err(|e| e.to_string())?;
+
+  Ok(())
+}
+
+/// End the session entirely: cancel any in-flight connect, drop the tunnel,
+/// and forget the cached auth so the next connect is a full login. Unlike
+/// `disconnect`, which only cuts the VPN and keeps the session for reuse.
+#[tauri::command]
+pub async fn logout(state: State<'_, AppState>) -> Result<(), String> {
+  use gpapi::service::request::DisconnectRequest;
+
+  info!("Logging out: dropping tunnel and clearing the cached session");
+
+  if let Some(token) = state.connect_cancel.lock().await.take() {
+    token.cancel();
+  }
+  if let Some(tx) = state.pending_gateway.lock().await.take() {
+    drop(tx);
+  }
+
+  *state.clean_next_auth.lock().await = true;
+  *state.cached_auth.lock().await = None;
+
+  // Best effort: the local session is already gone, so a missing service
+  // connection is not an error worth reporting.
+  let client = state.client.lock().await;
+  if let Some(ref client) = *client {
+    let _ = client.send(WsRequest::Disconnect(DisconnectRequest)).await;
+  }
+
+  Ok(())
+}
+
+/// Ask gpservice to drop every DNS-derived tunnel route and flush the OS
+/// resolver cache — unsticks a public domain pinned behind the VPN by a stale
+/// answer.
+#[tauri::command]
+pub async fn clear_dns(state: State<'_, AppState>) -> Result<(), String> {
+  info!("Sending clear-DNS request");
+
+  let client = state.client.lock().await;
+  let Some(ref client) = *client else {
+    return Err("Not connected to gpservice".to_string());
+  };
+
+  client.send(WsRequest::ClearDns).await.map_err(|e| e.to_string())?;
 
   Ok(())
 }

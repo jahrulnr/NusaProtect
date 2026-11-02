@@ -265,6 +265,7 @@ impl RequestDispatcher {
         }
         ServiceResult::Accepted
       }
+      WsRequest::ClearDns => self.clear_dns().await,
       WsRequest::Connect(_)
       | WsRequest::StopNonTunnelAttachment { .. }
       | WsRequest::Disconnect(_)
@@ -277,6 +278,36 @@ impl RequestDispatcher {
         unreachable!("session-bound request was already dispatched")
       }
     }
+  }
+
+  #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+  async fn clear_dns(&self) -> ServiceResult {
+    let output = tokio::task::spawn_blocking(|| {
+      std::process::Command::new(binary_paths::allowroute())
+        .args(["clear", "--state-dir", "/run/npclient/allowroute"])
+        .output()
+    })
+    .await;
+    match output {
+      Ok(Ok(output)) if output.status.success() => ServiceResult::Accepted,
+      Ok(Ok(output)) => ServiceResult::rejected(
+        ServiceErrorCode::Internal,
+        format!(
+          "allowroute clear failed: {}",
+          String::from_utf8_lossy(&output.stderr).trim()
+        ),
+      ),
+      Ok(Err(err)) => ServiceResult::rejected(
+        ServiceErrorCode::Internal,
+        format!("allowroute clear could not run: {err}"),
+      ),
+      Err(err) => ServiceResult::rejected(ServiceErrorCode::Internal, format!("allowroute clear failed: {err}")),
+    }
+  }
+
+  #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
+  async fn clear_dns(&self) -> ServiceResult {
+    ServiceResult::rejected(ServiceErrorCode::InvalidRequest, "DNS clearing is unavailable on this platform")
   }
 
   fn validate_connect_request(&self, request: &gpapi::service::request::ConnectRequest) -> Result<(), &'static str> {

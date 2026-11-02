@@ -426,6 +426,7 @@ pub enum WsRequest {
   SetTunnelStatisticsEnabled { enabled: bool },
   Connect(Box<ConnectRequest>),
   Disconnect(DisconnectRequest),
+  ClearDns,
   StopNonTunnelAttachment { connection_id: uuid::Uuid },
   StoreEditedHipReportChunk(StoreEditedHipReportChunkRequest),
   PreviewHipReport(PreviewHipReportRequest),

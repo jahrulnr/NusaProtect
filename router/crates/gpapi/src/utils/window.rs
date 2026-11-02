@@ -25,6 +25,16 @@ pub fn set_window_type_hint(window: &WebviewWindow, hint: WindowTypeHint) -> any
   Ok(())
 }
 
+/// Show `name` (a themed icon name) in the window's titlebar and _NET_WM_ICON
+/// instead of GTK's generic placeholder.
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+pub fn set_window_icon_name(window: &WebviewWindow, name: &str) -> anyhow::Result<()> {
+  use gtk::traits::GtkWindowExt;
+
+  window.gtk_window()?.set_icon_name(Some(name));
+  Ok(())
+}
+
 /// Returns the frame-to-content height difference for a standard titled macOS window.
 /// This is nonzero only on macOS.
 pub fn get_title_bar_height() -> f64 {

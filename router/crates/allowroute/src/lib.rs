@@ -99,6 +99,8 @@ pub fn decide(system: &[IpAddr], tunnel: &[IpAddr]) -> Decision {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DnsView {
     pub qname: String,
+    /// QTYPE of the first question (1 = A, 28 = AAAA).
+    pub qtype: u16,
     pub answers: Vec<IpAddr>,
 }
 
@@ -111,6 +113,7 @@ pub fn inspect_dns(packet: &[u8]) -> Option<DnsView> {
     let an = u16::from_be_bytes([packet[6], packet[7]]) as usize;
     let mut off = 12usize;
     let mut qname = String::new();
+    let mut qtype = 0u16;
     for i in 0..qd {
         let (name, next) = read_name(packet, off)?;
         if next + 4 > packet.len() {
@@ -118,6 +121,7 @@ pub fn inspect_dns(packet: &[u8]) -> Option<DnsView> {
         }
         if i == 0 {
             qname = name;
+            qtype = u16::from_be_bytes([packet[next], packet[next + 1]]);
         }
         off = next + 4;
     }
@@ -142,7 +146,25 @@ pub fn inspect_dns(packet: &[u8]) -> Option<DnsView> {
         }
         off = rdata + rdlen;
     }
-    Some(DnsView { qname, answers })
+    Some(DnsView { qname, qtype, answers })
+}
+
+/// Minimal standard DNS query for `name`. `id` is echoed back by the server,
+/// letting the caller match the response to the query.
+pub fn build_query(name: &str, qtype: u16, id: u16) -> Option<Vec<u8>> {
+    let name = name.trim_end_matches('.');
+    let mut pkt = vec![(id >> 8) as u8, (id & 0xff) as u8, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+    for label in name.split('.') {
+        if label.is_empty() || label.len() > 63 {
+            return None;
+        }
+        pkt.push(label.len() as u8);
+        pkt.extend_from_slice(label.as_bytes());
+    }
+    pkt.push(0);
+    pkt.extend_from_slice(&qtype.to_be_bytes());
+    pkt.extend_from_slice(&1u16.to_be_bytes());
+    Some(pkt)
 }
 
 fn read_name(packet: &[u8], offset: usize) -> Option<(String, usize)> {
@@ -293,7 +315,20 @@ mod tests {
         pkt.extend_from_slice(&[0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 1, 2, 3, 4]);
         let view = inspect_dns(&pkt).unwrap();
         assert_eq!(view.qname, "example.com");
+        assert_eq!(view.qtype, 1);
         assert_eq!(view.answers, vec![v4(1, 2, 3, 4)]);
+    }
+
+    #[test]
+    fn builds_a_round_trippable_query() {
+        let query = build_query("Example.COM.", 28, 0xbeef).unwrap();
+        assert_eq!(&query[..2], &[0xbe, 0xef]);
+        let view = inspect_dns(&query).unwrap();
+        assert_eq!(view.qname, "example.com");
+        assert_eq!(view.qtype, 28);
+        assert!(view.answers.is_empty());
+        assert!(build_query("", 1, 1).is_none());
+        assert!(build_query(&format!("{}.com", "a".repeat(64)), 1, 1).is_none());
     }
 
     #[test]

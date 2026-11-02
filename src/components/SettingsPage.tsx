@@ -77,6 +77,7 @@ interface Settings {
   userAgent: string;
   vpncScript: string;
   vpnPrefixes: string;
+  dnsRouteTtl: string;
   reconnectTimeout: string;
   mtu: string;
   submitHipReport: boolean;
@@ -106,6 +107,7 @@ const DEFAULT_SETTINGS: Settings = {
   userAgent: "",
   vpncScript: "/etc/vpnc/vpnc-script",
   vpnPrefixes: "10.0.0.0/8",
+  dnsRouteTtl: "",
   reconnectTimeout: "",
   mtu: "",
   submitHipReport: true,
@@ -363,6 +365,13 @@ function ConnectionSection({
         placeholder="10.0.0.0/8"
         hint="CIDRs routed through the tunnel. Empty uses 10.0.0.0/8."
         onChange={(v) => set({ vpnPrefixes: v })}
+      />
+      <SettingField
+        label="DNS Route TTL"
+        value={s.dnsRouteTtl}
+        placeholder="300"
+        hint="Seconds before a name that fell back to VPN DNS is re-resolved — a public answer then drops its tunnel route. Empty uses 300; 0 keeps routes until disconnect."
+        onChange={(v) => set({ dnsRouteTtl: v })}
       />
       <SettingField
         label="Reconnect Timeout"

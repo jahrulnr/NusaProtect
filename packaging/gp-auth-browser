@@ -1,0 +1,30 @@
+#!/bin/sh
+# Opens the GlobalProtect auth URL in a dedicated window on its own
+# persistent browser profile (~/.cache/gp-auth-browser), kept separate from
+# the everyday browser so the VPN SSO account never collides with it.
+# Persistent cookies (e.g. an IdP "stay signed in" cookie) survive across
+# runs; session cookies still die when the window is closed.
+# Set NP_AUTH_BROWSER_SHARED=1 to use the everyday profile instead, or
+# NP_AUTH_BROWSER_PROFILE=/path/to/dir to override the profile location.
+if [ "$NP_AUTH_BROWSER_SHARED" = "1" ]; then
+  for b in google-chrome brave-browser chromium microsoft-edge-stable; do
+    if command -v "$b" >/dev/null 2>&1; then
+      exec "$b" --new-window "$@"
+    fi
+  done
+  if command -v firefox >/dev/null 2>&1; then
+    exec firefox --new-window "$@"
+  fi
+  exec xdg-open "$@"
+fi
+PROFILE="${NP_AUTH_BROWSER_PROFILE:-$HOME/.cache/gp-auth-browser}"
+mkdir -p "$PROFILE"
+for b in google-chrome brave-browser chromium microsoft-edge-stable; do
+  if command -v "$b" >/dev/null 2>&1; then
+    exec "$b" --user-data-dir="$PROFILE" --no-first-run --no-default-browser-check --new-window "$@"
+  fi
+done
+if command -v firefox >/dev/null 2>&1; then
+  exec firefox --no-remote --profile "$PROFILE" "$@"
+fi
+exec xdg-open "$@"

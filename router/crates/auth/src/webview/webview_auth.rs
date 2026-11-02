@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use anyhow::bail;
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-use gpapi::utils::window::{WindowTypeHint, set_window_type_hint};
+use gpapi::utils::window::{WindowTypeHint, set_window_icon_name, set_window_type_hint};
 use gpapi::{
   auth::{AuthWindowTheme, AuthenticationCancelled, SamlAuthData},
   error::ServerTlsError,
@@ -138,7 +138,10 @@ impl<'a> WebviewAuthenticator<'a> {
       .build()?;
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-    set_window_type_hint(&auth_window, WindowTypeHint::Dialog)?;
+    {
+      set_window_type_hint(&auth_window, WindowTypeHint::Dialog)?;
+      set_window_icon_name(&auth_window, "nusaprotect")?;
+    }
 
     let messenger = Arc::clone(&auth_messenger);
     let raise_task = tokio::spawn(async move {

@@ -12,6 +12,8 @@ mod macos;
 ))]
 use crate::constants::GP_DOWNLOADED_GUI_BINARY;
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+use crate::constants::GP_ALLOWROUTE_BINARY;
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 use crate::constants::GP_HIP_SCRIPT_INSTALLER_BINARY;
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 use crate::constants::GP_VPNC_SCRIPT_INSTALLER_BINARY;
@@ -32,6 +34,11 @@ pub fn gp_vpnc_script_installer() -> PathBuf {
     "np-vpnc-script-installer",
     GP_VPNC_SCRIPT_INSTALLER_BINARY,
   )
+}
+
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+pub fn allowroute() -> PathBuf {
+  resolve(&["NP_ALLOWROUTE", "GP_ALLOWROUTE"], "allowroute", GP_ALLOWROUTE_BINARY)
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
@@ -98,7 +105,7 @@ fn sibling_binary_for_executable(executable: &Path, binary_name: &str) -> Option
   if is_file(&binary) {
     return Some(binary);
   }
-  if matches!(binary_name, "np-vpnc-script-installer" | "np-hip-script-installer") {
+  if matches!(binary_name, "np-vpnc-script-installer" | "np-hip-script-installer" | "allowroute") {
     let binary = bin_dir.parent()?.join("libexec/npclient").join(binary_name);
     if is_file(&binary) {
       return Some(binary);

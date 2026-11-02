@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=NusaProtect
+NoDisplay=true
+Exec=/usr/bin/npauth
+Icon=nusaprotect
+StartupWMClass=npauth

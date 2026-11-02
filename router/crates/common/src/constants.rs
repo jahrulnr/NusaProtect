@@ -13,6 +13,10 @@ pub const GP_HIP_SCRIPT_INSTALLER_BINARY: &str = "/usr/local/libexec/npclient/np
 pub const INSTALLED_VPNC_SCRIPT: &str = "/var/lib/npclient/scripts/vpnc-script";
 #[cfg(target_os = "linux")]
 pub const INSTALLED_VPNC_SCRIPT_METADATA: &str = "/var/lib/npclient/scripts/vpnc-script.metadata";
+#[cfg(target_os = "linux")]
+pub const GP_ALLOWROUTE_BINARY: &str = "/usr/libexec/npclient/allowroute";
+#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
+pub const GP_ALLOWROUTE_BINARY: &str = "/usr/local/libexec/npclient/allowroute";
 #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
 pub const GP_VPNC_SCRIPT_INSTALLER_BINARY: &str = "/usr/local/libexec/npclient/np-vpnc-script-installer";
 #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]

@@ -388,14 +388,15 @@ pub async fn connect_password(
   Ok((req, cached))
 }
 
-/// Switch to another gateway reusing the cached portal session — no re-auth.
+/// Connect reusing the cached portal session — no re-auth.
 /// Fails if the cached cookie is expired/rejected; caller should fall back to
-/// a normal connect in that case.
+/// a normal connect in that case. Returns the request plus the refreshed
+/// CachedAuth (the portal rotates its auth cookie on each config fetch).
 pub async fn connect_with_credential(
   cached: &CachedAuth,
-  gateway: &str,
+  gateway: Option<&str>,
   ctx: FlowCtx<'_>,
-) -> anyhow::Result<ConnectRequest> {
+) -> anyhow::Result<(ConnectRequest, CachedAuth)> {
   let FlowCtx { app, pick, cancellation } = ctx;
   let gp_params = build_gp_params(&cached.cert, &cached.profile);
   let os_profile = gp_params.os_profile().clone();
@@ -406,10 +407,10 @@ pub async fn connect_with_credential(
   let gateways = portal_config.gateways();
   anyhow::ensure!(!gateways.is_empty(), "No gateways found in portal configuration");
 
-  let selected_gateway = pick.pick(Some(gateway), &portal_config, &gateways, app).await?;
+  let selected_gateway = pick.pick(gateway, &portal_config, &gateways, app).await?;
   let all_gateways: Vec<_> = gateways.into_iter().cloned().collect();
 
-  info!("Switching to gateway: {}", selected_gateway.name());
+  info!("Connecting to gateway with cached session: {}", selected_gateway.name());
 
   let auth_cookie_cred: Credential = portal_config.auth_cookie().into();
   let authentication = gateway_auth(selected_gateway.server(), &auth_cookie_cred, gp_params.clone(), cancellation)
@@ -428,17 +429,24 @@ pub async fn connect_with_credential(
   )?;
 
   let connect_info = ConnectInfo::new(cached.portal.clone(), selected_gateway, all_gateways);
-  Ok(
-    ConnectRequest::new(connect_info, plan)
-      .with_os_profile(&os_profile)
-      .with_disable_ipv6(cached.tunnel.disable_ipv6)
-      .with_no_dtls(cached.tunnel.no_dtls)
-      .with_vpnc_script(cached.tunnel.vpnc_script.clone())
-      .with_reconnect_timeout(cached.tunnel.reconnect_timeout)
-      .with_mtu(cached.tunnel.mtu)
-      .with_hip_source(cached.tunnel.hip_source.clone())
-      .with_certificate(cached.cert.certificate.clone())
-      .with_sslkey(cached.cert.sslkey.clone())
-      .with_key_password(cached.cert.key_password.clone()),
-  )
+  let req = ConnectRequest::new(connect_info, plan)
+    .with_os_profile(&os_profile)
+    .with_disable_ipv6(cached.tunnel.disable_ipv6)
+    .with_no_dtls(cached.tunnel.no_dtls)
+    .with_vpnc_script(cached.tunnel.vpnc_script.clone())
+    .with_reconnect_timeout(cached.tunnel.reconnect_timeout)
+    .with_mtu(cached.tunnel.mtu)
+    .with_hip_source(cached.tunnel.hip_source.clone())
+    .with_certificate(cached.cert.certificate.clone())
+    .with_sslkey(cached.cert.sslkey.clone())
+    .with_key_password(cached.cert.key_password.clone());
+  let fresh = CachedAuth {
+    portal: cached.portal.clone(),
+    region: cached.region.clone(),
+    cred: auth_cookie_cred,
+    cert: cached.cert.clone(),
+    tunnel: cached.tunnel.clone(),
+    profile: cached.profile.clone(),
+  };
+  Ok((req, fresh))
 }

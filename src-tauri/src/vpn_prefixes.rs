@@ -1,6 +1,7 @@
-//! Turn the settings field into a vpnc wrapper that exports `NP_VPN_PREFIXES`.
-//! OpenConnect builds the script environment itself, so a value set in the GUI
-//! process would never reach `allowroute`. The wrapper is the script OpenConnect runs.
+//! Turn the settings field into a vpnc wrapper that exports `NP_VPN_PREFIXES`
+//! and `NP_DNS_ROUTE_TTL`. OpenConnect builds the script environment itself, so
+//! a value set in the GUI process would never reach `allowroute`. The wrapper
+//! is the script OpenConnect runs.
 
 use std::fs;
 use std::io;
@@ -8,6 +9,9 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 const DEFAULT_PREFIX: &str = "10.0.0.0/8";
+/// Seconds a DNS-derived tunnel route is kept before re-resolution. Matches
+/// `DEFAULT_ROUTE_TTL` in allowroute.
+const DEFAULT_ROUTE_TTL_SECS: u32 = 300;
 const STOCK_SCRIPTS: &[&str] = &[
   "/etc/vpnc/vpnc-script",
   "/usr/share/vpnc-scripts/vpnc-script",
@@ -73,23 +77,37 @@ pub fn choose_script(configured: Option<&str>, fork: &str, fork_exists: bool) ->
   }
 }
 
-pub fn wrapper_body(prefixes: &str, inner_script: &str) -> String {
+pub fn normalize_route_ttl(raw: Option<&str>) -> Result<u32, String> {
+  let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+    return Ok(DEFAULT_ROUTE_TTL_SECS);
+  };
+  raw.parse::<u32>()
+    .map_err(|_| format!("DNS route TTL '{raw}' is not a number of seconds"))
+}
+
+pub fn wrapper_body(prefixes: &str, route_ttl: u32, inner_script: &str) -> String {
   format!(
-    "#!/bin/sh\nexport NP_VPN_PREFIXES={}\nexec {} \"$@\"\n",
+    "#!/bin/sh\nexport NP_VPN_PREFIXES={}\nexport NP_DNS_ROUTE_TTL={}\nexec {} \"$@\"\n",
     shell_quote(prefixes),
+    route_ttl,
     shell_quote(inner_script),
   )
 }
 
-pub fn prepare(configured_script: Option<&str>, prefixes: Option<&str>) -> Result<String, String> {
+pub fn prepare(
+  configured_script: Option<&str>,
+  prefixes: Option<&str>,
+  route_ttl: Option<&str>,
+) -> Result<String, String> {
   let fork = fork_vpnc_script();
   let fork_s = fork.to_string_lossy();
   let inner = choose_script(configured_script, fork_s.as_ref(), fork.is_file());
   let prefixes = normalize_prefixes(prefixes.unwrap_or(""))?;
+  let route_ttl = normalize_route_ttl(route_ttl)?;
   let dir = config_dir()?;
   fs::create_dir_all(&dir).map_err(|err| format!("cannot create {}: {err}", dir.display()))?;
   let path = dir.join("vpnc-allowroute.sh");
-  let body = wrapper_body(&prefixes, &inner);
+  let body = wrapper_body(&prefixes, route_ttl, &inner);
   write_executable(&path, &body).map_err(|err| format!("cannot write {}: {err}", path.display()))?;
   Ok(path.to_string_lossy().into_owned())
 }
@@ -158,9 +176,23 @@ mod tests {
   }
 
   #[test]
+  fn empty_route_ttl_uses_the_default() {
+    assert_eq!(normalize_route_ttl(None).unwrap(), 300);
+    assert_eq!(normalize_route_ttl(Some("  ")).unwrap(), 300);
+  }
+
+  #[test]
+  fn route_ttl_rejects_non_numbers() {
+    assert!(normalize_route_ttl(Some("five")).is_err());
+    assert_eq!(normalize_route_ttl(Some("60")).unwrap(), 60);
+    assert_eq!(normalize_route_ttl(Some("0")).unwrap(), 0);
+  }
+
+  #[test]
   fn wrapper_exports_prefixes_and_execs_the_inner_script() {
-    let body = wrapper_body("10.0.0.0/8", "/opt/fork/vpnc-script");
+    let body = wrapper_body("10.0.0.0/8", 300, "/opt/fork/vpnc-script");
     assert!(body.contains("export NP_VPN_PREFIXES='10.0.0.0/8'\n"));
+    assert!(body.contains("export NP_DNS_ROUTE_TTL=300\n"));
     assert!(body.contains("exec '/opt/fork/vpnc-script' \"$@\"\n"));
   }
 

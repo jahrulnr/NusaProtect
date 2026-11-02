@@ -19,6 +19,15 @@ use tokio::sync::Mutex;
 use crate::commands::*;
 use crate::{commands::AppState, service_client::connect_to_service};
 
+const TRAY_CLICK_WINDOW: Duration = Duration::from_millis(400);
+
+#[derive(Default)]
+struct TrayClickState {
+  last: Option<Instant>,
+  burst: u8,
+  generation: u64,
+}
+
 fn format_duration(secs: u64) -> String {
   let h = secs / 3600;
   let m = (secs % 3600) / 60;
@@ -55,21 +64,41 @@ impl TrayStatus {
   }
 }
 
+/// Show `window` above other windows and focus it. Plain `set_focus` is
+/// ignored by Wayland compositors (and some X11 WMs) for a window that was
+/// only hidden or buried — never minimized — so briefly flip always-on-top
+/// to force the raise, then drop it back into normal stacking order.
+#[cfg(desktop)]
+pub(crate) fn reveal_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> Result<(), String> {
+  let _ = window.unminimize();
+  window.show().map_err(|e| e.to_string())?;
+  let _ = window.set_always_on_top(true);
+  let _ = window.set_focus();
+  let _ = window.set_always_on_top(false);
+  Ok(())
+}
+
+#[cfg(desktop)]
+fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
+  if let Some(window) = app.get_webview_window("main") {
+    reveal_window(&window)
+  } else {
+    Err("Main window not found".to_string())
+  }
+}
+
 #[cfg(desktop)]
 fn toggle_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
   if let Some(window) = app.get_webview_window("main") {
     if !window.is_visible().unwrap_or(true) {
       // Window was fully hidden (e.g. started with --minimized): restore it.
-      window.show().map_err(|e| e.to_string())?;
-      window.set_focus().map_err(|e| e.to_string())?;
+      reveal_window(&window)?;
     } else if window.is_focused().unwrap_or(false) {
       // Window is visible and focused: minimize to tray.
       let _ = window.minimize();
     } else {
       // Window is minimized or behind other windows: bring it to front.
-      let _ = window.unminimize();
-      window.show().map_err(|e| e.to_string())?;
-      window.set_focus().map_err(|e| e.to_string())?;
+      reveal_window(&window)?;
     }
     Ok(())
   } else {
@@ -127,6 +156,8 @@ impl App {
         cancel_connect,
         switch_gateway,
         disconnect,
+        logout,
+        clear_dns,
         quit_app,
         minimize_window,
         show_window,
@@ -134,7 +165,7 @@ impl App {
         start_dragging,
         open_settings,
         open_url,
-        clear_credentials,
+
         persist_launch_settings,
       ])
       .setup(move |app| {
@@ -208,6 +239,13 @@ impl App {
             warn!("No default window icon available for tray icon");
           }
 
+          // Distinguish single- from double-click like Flameshot does: hold
+          // the action for ~400 ms; a second activate event inside the window
+          // upgrades it to a double-click (always show) while a lone event
+          // resolves as a toggle. A double-click can also arrive as a burst
+          // of Activate/SecondaryActivate events, which the same window
+          // collapses into the double-click resolution.
+          let tray_click_state = Arc::new(std::sync::Mutex::new(TrayClickState::default()));
           let tray = tray_builder
             .on_menu_event(move |app, event| match event.id().as_ref() {
               "tray-toggle-window" => {
@@ -244,16 +282,61 @@ impl App {
               _ => {}
             })
             .on_tray_icon_event(move |tray, event| {
-              if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-              } = event
-              {
-                if let Err(e) = toggle_main_window(tray.app_handle()) {
-                  warn!("Failed to toggle main window from tray click: {}", e);
+              // Activate-class events differ per DE: KDE sends Activate on a
+              // single left click, many GNOME setups map double-click to
+              // Activate or SecondaryActivate, Windows reports DoubleClick.
+              let activates = matches!(
+                event,
+                TrayIconEvent::Click {
+                  button: MouseButton::Left | MouseButton::Middle,
+                  button_state: MouseButtonState::Up,
+                  ..
+                } | TrayIconEvent::DoubleClick {
+                  button: MouseButton::Left,
+                  ..
                 }
+              );
+              if !activates {
+                return;
               }
+              let Ok(mut state) = tray_click_state.lock() else {
+                return;
+              };
+              let now = Instant::now();
+              state.burst = if state
+                .last
+                .is_some_and(|last| now.duration_since(last) < TRAY_CLICK_WINDOW)
+              {
+                state.burst.saturating_add(1)
+              } else {
+                1
+              };
+              state.last = Some(now);
+              state.generation += 1;
+              let generation = state.generation;
+              let burst = state.burst;
+              drop(state);
+
+              let app = tray.app_handle().clone();
+              let click_state = Arc::clone(&tray_click_state);
+              tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(TRAY_CLICK_WINDOW).await;
+                let superseded = click_state
+                  .lock()
+                  .map(|state| state.generation != generation)
+                  .unwrap_or(true);
+                if superseded {
+                  return;
+                }
+                let result = if burst >= 2 {
+                  show_main_window(&app)
+                } else {
+                  toggle_main_window(&app)
+                };
+                if let Err(e) = result {
+                  warn!("Failed to handle tray activation: {}", e);
+                }
+              });
             })
             .build(&app_handle)?;
 
@@ -327,8 +410,6 @@ impl App {
         }
 
         if let Some(window) = app.get_webview_window("main") {
-          let _ = window.set_skip_taskbar(true);
-
           let window_clone = window.clone();
           window.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

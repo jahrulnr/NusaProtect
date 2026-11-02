@@ -48,6 +48,7 @@ interface Props {
   connectedAt: number;
   tunnel?: TunnelState | null;
   onDisconnect: () => void;
+  onLogout: () => void;
   onSwitchGateway: (name: string) => void;
 }
 
@@ -61,7 +62,7 @@ function Row({ label, children, caption }: { label: string; children: ReactNode;
   );
 }
 
-export default function ConnectedView({ portal, gatewayName, gatewayAddress, gateways, connectedAt, tunnel, onDisconnect, onSwitchGateway }: Props) {
+export default function ConnectedView({ portal, gatewayName, gatewayAddress, gateways, connectedAt, tunnel, onDisconnect, onLogout, onSwitchGateway }: Props) {
   const elapsed = useElapsed(connectedAt);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -247,6 +248,13 @@ export default function ConnectedView({ portal, gatewayName, gatewayAddress, gat
 
       <Button variant="outlined" color="error" size="large" onClick={onDisconnect} fullWidth>
         Disconnect
+      </Button>
+      <Button
+        size="small"
+        onClick={onLogout}
+        sx={{ textTransform: "none", color: "text.secondary" }}
+      >
+        Log Out
       </Button>
     </Box>
   );

@@ -89,6 +89,7 @@ install: all
 	$(SUDO) install -m 755 router/packaging/files/usr/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down \
 		$(DESTDIR)$(PREFIX)/lib/NetworkManager/dispatcher.d/pre-down.d/npclient.down
 	$(SUDO) install -m 644 packaging/nusaprotect.desktop $(DESTDIR)$(PREFIX)/share/applications/nusaprotect.desktop
+	$(SUDO) install -m 644 packaging/npauth.desktop $(DESTDIR)$(PREFIX)/share/applications/npauth.desktop
 	$(SUDO) install -m 644 src-tauri/icons/icon.svg $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/nusaprotect.svg
 	set -e; for size in 32x32 64x64 128x128; do \
 		$(SUDO) install -d $(DESTDIR)$(PREFIX)/share/icons/hicolor/$$size/apps; \
@@ -97,3 +98,5 @@ install: all
 	$(SUDO) install -d $(DESTDIR)$(PREFIX)/share/icons/hicolor/256x256/apps $(DESTDIR)$(PREFIX)/share/icons/hicolor/512x512/apps
 	$(SUDO) install -m 644 src-tauri/icons/128x128@2x.png $(DESTDIR)$(PREFIX)/share/icons/hicolor/256x256/apps/nusaprotect.png
 	$(SUDO) install -m 644 src-tauri/icons/icon.png $(DESTDIR)$(PREFIX)/share/icons/hicolor/512x512/apps/nusaprotect.png
+	install -d $(HOME)/.local/bin
+	install -m 755 packaging/gp-auth-browser $(HOME)/.local/bin/gp-auth-browser

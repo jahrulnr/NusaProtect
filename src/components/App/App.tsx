@@ -20,7 +20,8 @@ import MenuIcon from "@mui/icons-material/Menu";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DnsIcon from "@mui/icons-material/Dns";
+import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import { VpnState, PreloginType, Gateway, TunnelState } from "../../types";
@@ -51,6 +52,7 @@ type StoredSettings = {
   userAgent?: string;
   vpncScript?: string;
   vpnPrefixes?: string;
+  dnsRouteTtl?: string;
   reconnectTimeout?: string;
   mtu?: string;
   submitHipReport?: boolean;
@@ -73,6 +75,7 @@ const numArg = (v?: string): number | null => {
 const tunnelArgs = (s: StoredSettings) => ({
   vpncScript: s.vpncScript?.trim() || null,
   vpnPrefixes: s.vpnPrefixes?.trim() || "10.0.0.0/8",
+  dnsRouteTtl: s.dnsRouteTtl?.trim() || null,
   reconnectTimeout: numArg(s.reconnectTimeout),
   mtu: numArg(s.mtu),
   submitHipReport: s.submitHipReport ?? true,
@@ -464,16 +467,27 @@ export default function App() {
     setPreloginInfo(null);
   }, []);
 
-  const handleClearCredentials = useCallback(async () => {
+  const handleLogout = useCallback(async () => {
     setMenuAnchor(null);
+    connectCancelledRef.current = true;
     try {
-      await invoke("clear_credentials");
+      await invoke("logout");
     } catch (e) {
-      console.error("clear_credentials:", e);
+      console.error("logout:", e);
     }
-    setPortal("");
+    setIsAuthenticating(false);
     setPreloginInfo(null);
     setConnectError(null);
+  }, []);
+
+  const handleClearDns = useCallback(async () => {
+    setMenuAnchor(null);
+    try {
+      await invoke("clear_dns");
+    } catch (e) {
+      console.error("clear_dns:", e);
+      setConnectError(String(e));
+    }
   }, []);
 
   const handleOpenSettings = useCallback(async (section?: string) => {
@@ -547,6 +561,7 @@ export default function App() {
           connectedAt={connectedAt}
           tunnel={tunnelState}
           onDisconnect={handleDisconnect}
+          onLogout={handleLogout}
           onSwitchGateway={handleSwitchGateway}
         />
       );
@@ -620,9 +635,13 @@ export default function App() {
           open={Boolean(menuAnchor)}
           onClose={() => setMenuAnchor(null)}
         >
-          <MenuItem onClick={handleClearCredentials}>
-            <ListItemIcon><DeleteOutlineIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Clear Credentials</ListItemText>
+          <MenuItem onClick={handleClearDns}>
+            <ListItemIcon><DnsIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Clear DNS</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleLogout}>
+            <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Log Out</ListItemText>
           </MenuItem>
           <MenuItem onClick={() => handleOpenSettings()}>
             <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>

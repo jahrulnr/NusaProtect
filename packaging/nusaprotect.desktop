@@ -7,4 +7,5 @@ Categories=Network;Dialup;
 Exec=/usr/bin/npclient launch-gui %u
 MimeType=x-scheme-handler/globalprotectcallback;
 Icon=nusaprotect
+StartupWMClass=npgui
 Keywords=GlobalProtect;Openconnect;SAML;connection;VPN;

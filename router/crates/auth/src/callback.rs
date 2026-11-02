@@ -201,8 +201,11 @@ pub fn ensure_auth_callback_handler() -> anyhow::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd", test))]
 fn should_register_handler(current_handler: &str) -> bool {
-  // Only claim the handler when unset. Leave PAN/upstream (and our own) alone.
-  current_handler.is_empty()
+  // Claim the handler whenever we are about to perform browser auth and the
+  // current default is not ours. Leftover handlers (e.g. an uninstalled
+  // upstream client still holding the default) would otherwise swallow the
+  // callback and leave the authentication hanging.
+  current_handler != "nusaprotect.desktop"
 }
 
 async fn forward_auth_callback_to(callback: &str, socket_path: &Path) -> anyhow::Result<()> {
@@ -388,12 +391,12 @@ mod tests {
   }
 
   #[test]
-  fn registers_only_when_unset() {
+  fn registers_unless_we_are_the_default() {
     assert!(should_register_handler(""));
+    assert!(should_register_handler("gpgui.desktop"));
+    assert!(should_register_handler("gp.desktop"));
+    assert!(should_register_handler("other-vpn.desktop"));
     assert!(!should_register_handler("nusaprotect.desktop"));
-    assert!(!should_register_handler("gpgui.desktop"));
-    assert!(!should_register_handler("gp.desktop"));
-    assert!(!should_register_handler("other-vpn.desktop"));
   }
 
   #[test]

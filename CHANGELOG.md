@@ -11,6 +11,65 @@ version and is not this package version.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-02
+
+### Added
+
+- Double-clicking the tray icon now opens the main window directly.
+  Activate-class events (Activate, SecondaryActivate, DoubleClick) are
+  held ~400 ms so a second event can upgrade the gesture to a
+  double-click — which always shows the window — while a lone event
+  resolves as the usual show/hide toggle, matching Flameshot-style tray
+  behavior across DEs.
+- DNS-derived tunnel routes now expire and are re-resolved. A name that fell
+  back to VPN DNS gets a TTL (default 300 s, configurable in Settings →
+  Connection → DNS Route TTL); when it later resolves publicly, its tunnel
+  route is removed instead of staying pinned until disconnect. Names that
+  resolve to VPN-prefix addresses (e.g. `10.*`) are logged to
+  `allowroute.log`.
+- "Clear DNS" in the hamburger menu drops every DNS-derived tunnel route and
+  flushes the OS resolver cache, for the case where a public domain was
+  pinned behind the VPN by a stale answer.
+- "Log Out" — a button below Disconnect while connected, and in the
+  hamburger menu — ends the session entirely: it cancels any in-flight
+  connect, drops the tunnel, and forgets the cached authentication so the
+  next connect is a full login. Disconnect still only cuts the VPN and
+  keeps a still-valid session for reuse. It replaces the old "Clear
+  Credentials" menu item.
+  
+### Changed
+
+- The external-browser auth wrapper (`gp-auth-browser`) is now shipped by
+  the package and installed to `~/.local/bin`. It keeps opening the SSO
+  flow in a dedicated window on its own persistent profile
+  (`~/.cache/gp-auth-browser`), separate from the everyday browser so the
+  VPN account never collides with it; `NP_AUTH_BROWSER_SHARED=1` switches
+  to the everyday profile and `NP_AUTH_BROWSER_PROFILE` overrides the
+  profile location.
+
+### Fixed
+
+- The tray "Toggle Window" action now actually raises the window above the
+  others instead of leaving it buried behind them, and the main window
+  appears in the dock/taskbar again so it can be restored without
+  minimizing every other window.
+- The login window no longer shows a generic placeholder icon: its titlebar
+  icon is set to `nusaprotect`, and `StartupWMClass` entries map both the
+  main window (`npgui`) and the login window (`npauth`) to the NusaProtect
+  icon in the dock/taskbar.
+- Manual disconnect → connect no longer runs a full login when the portal
+  session is still valid. The cached authentication artifacts are reused to
+  fetch portal config and authenticate to the gateway; a rejected session
+  falls back to the normal SAML/password flow. "Log Out" drops the cached
+  session.
+- `allowroute` now watches the tunnel device: if `tun0` disappears without
+  vpnc-script stopping the daemon (an orphaned disconnect), the DNS redirect
+  and derived routes are torn down instead of blackholing name resolution
+  until a network reset.
+- Removing a tracked name no longer deletes a static route it happened to
+  share (the tunnel-DNS host route), and signal-interrupted sockets no
+  longer spam `Interrupted system call` errors.
+
 ## [0.1.1] - 2026-11-02
 
 ### Changed
