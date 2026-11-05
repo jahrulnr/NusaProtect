@@ -16,8 +16,9 @@ version and is not this package version.
 ### Changed
 
 - Dependency updates. Rust: `tauri` 2.12.4 → 2.12.5, `anyhow` 1.0.102 →
-  1.0.104, `netdev` 0.46.3 → 0.47.0, `thiserror` 2.0.18 → 2.0.21,
-  `zeroize` 1.8.2 → 1.9.1. npm: `vite` 7.3.5 → 8.3.5,
+  1.0.104, `clap` 4.6.0 → 4.6.1, `netdev` 0.46.3 → 0.47.0,
+  `thiserror` 2.0.18 → 2.0.21, `zeroize` 1.8.2 → 1.9.1.
+  npm: `vite` 7.3.5 → 8.3.5,
   `@types/node` 26.6.5 → 26.6.6, `@types/react-dom` 19.2.3 → 19.3.0.
 
 ## [0.1.2] - 2026-11-02
